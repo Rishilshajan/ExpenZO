@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExpenZO - Loading</title>
+    <style>
+        body {
+            background: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        h1 {
+            font-size: 310px;
+            font-weight: bold;
+            color: #000000;
+            letter-spacing: 30px; 
+            animation: fadein 2s ease-in-out; 
+        }
+
+        @keyframes fadein {
+            0% { opacity: 0; transform: scale(0.9); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+    </style>
+
+    <script>
+        setTimeout(() => {
+            window.location.href = "/auth";
+        }, 3000);
+    </script>
+</head>
+<body>
+    <h1>ExpenZO</h1>
+</body>
+</html>

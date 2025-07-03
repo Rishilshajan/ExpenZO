@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExpenZO-home</title>
+    <link rel="stylesheet" href="{{url_for('static', filename = 'css/home.css')}}">
+    <script src="{{url_for('static', filename = 'js/home.js')}}" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Track Your Expenses</h1>
+            <button id="toggle-mode">🌙</button>
+        </header>
+
+        <form method="post" id="expense-form">
+            <input type="number" name="Amount" placeholder="Amount" required>
+
+            <input type="text" name="Reason" placeholder="Reason" required>
+
+            <label for="category">Select or Add a Category:</label>
+            <select name="category" id="category-select">
+                {% for cat in categories %}
+                    <option value="{{cat}}">{{cat}}</option>
+                {% endfor %} 
+                <option value="__new__">Add new category</option>   
+            </select>
+
+            <input type="text" id="new-category-input" name="new_category" placeholder="Enter new category" style="display: none;">
+
+            <button type="submit">Add Expense</button>
+        </form>
+
+        <p id="message"></p>
+
+        <section class="analytics">
+            <h2>Expenses Overview</h2>
+            <div>
+                <canvas 
+                    id="piechart"
+                    data-labels='{{ chart_labels | tojson }}'
+                    data-values='{{ chart_data | tojson }}'>
+                </canvas>
+            </div>
+        </section>
+
+        <section class="recent-expenses">
+            <h2>Recent Expenses</h2>
+            <input type="text" id="search" placeholder="Search expenses">
+
+            <div class="filters">
+               <button data-category="All" class="filter-btn active">All</button>
+               {% for cat in categories %}
+                <button data-category="{{ cat }}" class="filter-btn">{{ cat }}</button>
+               {% endfor %}
+            </div>
+
+            <ul id="expense-list">
+            {% for expense in expenses %}
+            <li class="expense-item" data-category="{{ expense.category }}">
+            <span><strong>{{ expense.reason }}</strong> - ₹{{ expense.amount }}</span>
+            <small>{{ expense.category }}</small>
+            </li>
+            {% endfor %}
+            </ul>
+        </section>
+
+    </div>
+</body>
+</html>
