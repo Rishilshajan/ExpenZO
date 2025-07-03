@@ -5,6 +5,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const searchInput = document.getElementById("search");
     const filterButtons = document.querySelectorAll(".filter-btn");
     const expenseItems = document.querySelectorAll(".expense-item");
+    const profileBtn = document.getElementById("profile-btn");
+    const dropdown = document.getElementById('dropdown-menu');
+    const fab = document.getElementById("fab");
+    const modal = document.getElementById("fab-modal");
+    const close = document.getElementById("fab-close");
 
     // === Restore Mode on Load ===
     const currentMode = localStorage.getItem("mode") || "light";
@@ -37,6 +42,33 @@ document.addEventListener("DOMContentLoaded", () => {
             newCategoryInput.required = false;
         }
     });
+
+    profileBtn.addEventListener("click", () => {
+        dropdown.style.display = dropdown.style.display === "flex" ? "none" : "flex";
+    });
+
+    // Optional: Click outside to close dropdown
+    document.addEventListener("click", (e) => {
+        if (!profileBtn.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.style.display = "none";
+        }
+    });
+
+     fab.addEventListener("click", () => {
+    modal.style.display = "block";
+  });
+
+  close.addEventListener("click", () => {
+    modal.style.display = "none";
+  });
+
+  // Optional: click outside modal to close
+  window.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      modal.style.display = "none";
+    }
+  });
+
 
     // === Category filter ===
     filterButtons.forEach((button) => {

@@ -47,6 +47,10 @@ def set_session():
     return jsonify({"message": "Session stored"}), 200
 
 # 4. Home Route - Expense Dashboard
+from collections import defaultdict
+from flask import render_template, redirect, request, session, url_for
+from datetime import datetime
+
 @app.route('/home', methods=['GET', 'POST'])
 def home():
     if 'user' not in session:
@@ -103,7 +107,7 @@ def home():
     values = list(category_totals.values())
 
     return render_template("home.html",
-                           user=user_data,
+                           user=user_data,  
                            categories=categories,
                            expenses=expenses,
                            chart_labels=labels,

@@ -11,8 +11,46 @@
 <body>
     <div class="container">
         <header>
+            
             <h1>Track Your Expenses</h1>
+           <div class="header-right">
             <button id="toggle-mode">🌙</button>
+
+            {% if user %}
+            <div class="profile-container">
+                <button id="profile-btn">
+                    {% if user.photo %}
+                        <img src="{{ user.photo }}" alt="Profile" style="width:100%; height:100%; border-radius: 50%;">
+                    {% else %}
+                        {{ user.name[0]|upper }}
+                    {% endif %}
+                </button>
+                <div class="dropdown" id="dropdown-menu">
+                    <a href="#">My Profile</a>
+                    <a href="#">About</a>
+                    <a href="#">Settings</a>
+                    <a href="/logout">Logout</a>
+                </div>
+            </div>
+            {% endif %}
+
+               <!-- FAB (Floating Action Button) -->
+    <button id="fab" title="Quick Action">+</button>
+
+    <!-- Modal -->
+    <div id="fab-modal" class="fab-modal">
+    <div class="fab-modal-content">
+    <span id="fab-close">&times;</span>
+    <h3>Select Action</h3>
+    <button class="fab-option" onclick="window.location.href='/group/create'">➕ Create Group</button>
+    <button class="fab-option" onclick="document.getElementById('expense-form').scrollIntoView({ behavior: 'smooth' })">📝 Enter Expense</button>
+    </div>
+    </div>
+
+    </div>
+
+    
+
         </header>
 
         <form method="post" id="expense-form">
