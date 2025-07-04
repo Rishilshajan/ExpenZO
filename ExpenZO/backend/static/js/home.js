@@ -7,10 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const expenseItems = document.querySelectorAll(".expense-item");
     const profileBtn = document.getElementById("profile-btn");
     const dropdown = document.getElementById('dropdown-menu');
-    const fab = document.getElementById("fab");
-    const modal = document.getElementById("fab-modal");
-    const close = document.getElementById("fab-close");
-
+    
     // === Restore Mode on Load ===
     const currentMode = localStorage.getItem("mode") || "light";
     applyMode(currentMode);
@@ -31,6 +28,47 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.setItem("mode", newMode);
         applyMode(newMode); 
     });
+
+document.getElementById("add-member-btn").addEventListener("click", () => {
+  const div = document.createElement("div");
+  div.classList.add("member");
+  div.innerHTML = `
+    <input type="text" class="member-name" placeholder="Member Name" required>
+    <input type="tel" class="member-phone" placeholder="Phone Number" required>
+  `;
+  document.getElementById("members-list").appendChild(div);
+});
+
+document.getElementById("create-group-btn").addEventListener("click", () => {
+  const groupName = document.getElementById("group-name").value.trim();
+  const nameElems = document.querySelectorAll(".member-name");
+  const phoneElems = document.querySelectorAll(".member-phone");
+
+  const members = [];
+  for (let i = 0; i < nameElems.length; i++) {
+    const name = nameElems[i].value.trim();
+    const phone = phoneElems[i].value.trim();
+    if (name && phone) {
+      members.push({ name, phone });
+    }
+  }
+
+  if (!groupName || members.length === 0) {
+    alert("Please enter group name and at least one member.");
+    return;
+  }
+
+  fetch("/create_group", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ group_name: groupName, members })
+  }).then(res => res.json())
+    .then(data => {
+      alert(data.message);
+      location.reload();
+    });
+});
+
 
     // === Show/hide new category input ===
     categorySelect.addEventListener("change", () => {

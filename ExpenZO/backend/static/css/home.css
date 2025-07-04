@@ -262,28 +262,6 @@ header h1 {
   background-color: #f1f1f1;
 }
 
-/* Floating Action Button */
-#fab {
-  position: fixed;
-  bottom: 100px;
-  right: 30px;
-  width: 60px;
-  height: 60px;
-  border: none;
-  border-radius: 50%;
-  background-color: #007bff;
-  color: white;
-  font-size: 1.2rem;
-  font-weight: bold;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-  cursor: pointer;
-  z-index: 1000;
-  transition: transform 0.3s ease;
-}
-#fab:hover {
-  transform: scale(1.05);
-}
-
 /* Modal Overlay */
 .fab-modal {
   display: none;
@@ -341,5 +319,125 @@ header h1 {
   from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  z-index: 999;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-box {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+}
+
+.dark-mode .modal-box {
+  background-color: #222;
+  color: #eee;
+}
+
+.modal-buttons {
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-around;
+  gap: 1rem;
+}
+
+.modal-buttons button {
+  padding: 10px 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  background-color: #2d89ef;
+  color: white;
+  cursor: pointer;
+}
+
+.modal-buttons button:hover {
+  background-color: #1e70c9;
+}
+
+.btn-create-group {
+    display: inline-block;
+    background-color: #2d89ef;
+    color: white;
+    padding: 10px 14px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+    border: none;
+    text-align: center;
+}
+
+.btn-create-group:hover {
+    background-color: #1e70c9;
+}
+
+
+.group-section {
+  margin-top: 30px;
+}
+
+.group-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.group-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 80px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.group-item:hover {
+  transform: scale(1.05);
+}
+
+.group-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background-color: #2d89ef;
+  color: white;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.group-name {
+  margin-top: 8px;
+  font-size: 14px;
+  text-align: center;
+  word-break: break-word;
+  color: #333;
+}
+
+.dark-mode .group-avatar {
+  background-color: #3b82f6;
+}
+
+.dark-mode .group-name {
+  color: #f1f1f1;
+}
+
 
  

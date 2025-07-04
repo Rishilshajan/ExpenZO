@@ -47,10 +47,6 @@ def set_session():
     return jsonify({"message": "Session stored"}), 200
 
 # 4. Home Route - Expense Dashboard
-from collections import defaultdict
-from flask import render_template, redirect, request, session, url_for
-from datetime import datetime
-
 @app.route('/home', methods=['GET', 'POST'])
 def home():
     if 'user' not in session:
@@ -63,6 +59,9 @@ def home():
 
     user_col = db[username]
     meta_col = db['meta']
+    groups_col = db['groups']
+    user_groups = list(groups_col.find({"creator_email": username}))   
+
 
     # Ensure meta info exists for user
     user_meta = meta_col.find_one({"user": username})
@@ -111,7 +110,42 @@ def home():
                            categories=categories,
                            expenses=expenses,
                            chart_labels=labels,
-                           chart_data=values)
+                           chart_data=values,
+                           groups=user_groups)
+
+
+@app.route("/group/create", methods=["GET", "POST"])
+def group_create():
+    if "user" not in session:
+        return redirect(url_for("auth"))
+
+    if request.method == "POST":
+        data = request.form
+        group_name = data.get("group_name")
+        member_names = request.form.getlist("member_name")
+        member_phones = request.form.getlist("member_phone")
+
+        members = [
+            {"name": name, "phone": phone}
+            for name, phone in zip(member_names, member_phones)
+            if name and phone
+        ]
+
+        if not group_name or not members:
+            return render_template("create_group.html", error="Fill all fields", group_name=group_name, members=members)
+
+        db.groups.insert_one({
+            "group_name": group_name,
+            "creator_email": session["user"]["email"],
+            "members": members,
+            "created_at": datetime.now()
+        })
+
+        return redirect(url_for("home"))
+
+    return render_template("create_group.html")
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)

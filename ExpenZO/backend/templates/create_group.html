@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Create Group - ExpenZO</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+  <style>
+
+    body{
+      height: 100vh;
+      margin:0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #f5f6fa;
+    }
+    
+    .group-form {
+      top:200px;
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    }
+
+    .group-form h2 {
+      margin-bottom: 20px;
+    }
+
+    .group-form input {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    .group-form .member-pair {
+      display: flex;
+      gap: 10px;
+    }
+
+    .group-form button {
+      background-color: #2d89ef;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .group-form button:hover {
+      background-color: #1e70c9;
+    }
+
+    .error {
+      color: red;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="group-form">
+    <h2>Create a New Group</h2>
+
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST">
+      <input type="text" name="group_name" placeholder="Group Name" required value="{{ group_name or '' }}">
+
+      <div id="members-wrapper">
+        {% if members %}
+          {% for m in members %}
+          <div class="member-pair">
+            <input type="text" name="member_name" placeholder="Member Name" value="{{ m.name }}" required>
+            <input type="tel" name="member_phone" placeholder="Phone Number" value="{{ m.phone }}" required>
+          </div>
+          {% endfor %}
+        {% else %}
+        <div class="member-pair">
+          <input type="text" name="member_name" placeholder="Member Name" required>
+          <input type="tel" name="member_phone" placeholder="Phone Number" required>
+        </div>
+        {% endif %}
+      </div>
+
+      <button type="button" onclick="addMember()">➕ Add Member</button>
+      <button type="submit">✅ Create Group</button>
+    </form>
+  </div>
+
+  <script>
+    function addMember() {
+      const wrapper = document.getElementById("members-wrapper");
+      const div = document.createElement("div");
+      div.className = "member-pair";
+      div.innerHTML = `
+        <input type="text" name="member_name" placeholder="Member Name" required>
+        <input type="tel" name="member_phone" placeholder="Phone Number" required>
+      `;
+      wrapper.appendChild(div);
+    }
+  </script>
+</body>
+</html>

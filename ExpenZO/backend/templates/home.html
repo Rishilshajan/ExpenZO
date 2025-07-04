@@ -34,19 +34,6 @@
             </div>
             {% endif %}
 
-               <!-- FAB (Floating Action Button) -->
-    <button id="fab" title="Quick Action">+</button>
-
-    <!-- Modal -->
-    <div id="fab-modal" class="fab-modal">
-    <div class="fab-modal-content">
-    <span id="fab-close">&times;</span>
-    <h3>Select Action</h3>
-    <button class="fab-option" onclick="window.location.href='/group/create'">➕ Create Group</button>
-    <button class="fab-option" onclick="document.getElementById('expense-form').scrollIntoView({ behavior: 'smooth' })">📝 Enter Expense</button>
-    </div>
-    </div>
-
     </div>
 
     
@@ -69,9 +56,23 @@
             <input type="text" id="new-category-input" name="new_category" placeholder="Enter new category" style="display: none;">
 
             <button type="submit">Add Expense</button>
+            <a href="/group/create" class="btn-create-group">Create Group</a>
         </form>
 
         <p id="message"></p>
+
+        <section class="group-section">
+  <h2>Your Groups</h2>
+  <div class="group-list">
+    {% for group in groups %}
+    <div class="group-item">
+      <div class="group-avatar">{{ group.group_name[0] | upper }}</div>
+      <div class="group-name">{{ group.group_name }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
 
         <section class="analytics">
             <h2>Expenses Overview</h2>
