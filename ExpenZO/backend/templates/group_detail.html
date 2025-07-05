@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ group.group_name }} - Group Details | ExpenZO</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/group_detail.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script defer src="{{url_for('static', filename='js/group_detail,js")}}>
+        
+    </script>
+</head>
+<body>
+<!-- group_detail.html - Section 1 -->
+<div class="section-summary">
+    <!-- Total Balance -->
+    <div class="summary-box">
+        <h3>Total Balance</h3>
+        <div class="amount {{ 'amount-positive' if total_balance >= 0 else 'amount-negative' }}">
+            ₹ {{ "{:,.2f}".format(total_balance) }}
+        </div>
+    </div>
+
+    <!-- Amount to Pay -->
+    <div class="summary-box">
+        <h3>Amount to Pay</h3>
+        <div class="amount amount-negative">
+            ₹ {{ "{:,.2f}".format(amount_to_pay) }}
+        </div>
+    </div>
+
+    <!-- Amount to Receive -->
+    <div class="summary-box">
+        <h3>Amount to Get</h3>
+        <div class="amount amount-positive">
+            ₹ {{ "{:,.2f}".format(amount_to_receive) }}
+        </div>
+    </div>
+
+    <!-- Add Expense Button -->
+    <button class="add-expense-btn" id="open-expense-modal">➕ Add Expense</button>
+
+    <!-- Add Expense Button -->
+<button id="add-expense-btn" class="btn">+ Add Expense</button>
+
+<!-- Expense Modal -->
+<div id="expense-modal" class="modal">
+  <div class="modal-content">
+    <span id="close-expense" class="close">&times;</span>
+    <h2>Add Group Expense</h2>
+
+    <form id="expense-form">
+      <label>Title / Reason</label>
+      <input type="text" id="expense-title" placeholder="e.g. Lunch at Cafe" required>
+
+      <label>Total Amount</label>
+      <input type="number" id="expense-amount" required>
+
+      <label>Who Paid?</label>
+      <select id="paid-by" required>
+        {% for member in group.members %}
+          <option value="{{ member.phone }}">{{ member.name }} ({{ member.phone }})</option>
+        {% endfor %}
+      </select>
+
+      <label>Select Members to Split</label>
+      <div id="member-checkboxes">
+        {% for member in group.members %}
+          <div>
+            <input type="checkbox" id="mem{{ loop.index }}" name="members" value="{{ member.phone }}">
+            <label for="mem{{ loop.index }}">{{ member.name }}</label>
+          </div>
+        {% endfor %}
+      </div>
+
+      <label>Split Type:</label>
+      <div>
+        <input type="radio" name="split-type" value="equal" checked> Equal
+        <input type="radio" name="split-type" value="custom"> Custom
+      </div>
+
+      <div id="custom-split-section" style="display: none;">
+        <h4>Enter Custom Amounts</h4>
+        <div id="custom-splits">
+          <!-- JS will populate this -->
+        </div>
+      </div>
+
+      <button type="submit">Submit Expense</button>
+    </form>
+  </div>
+</div>
+
+</div>
+
+</body>
+</html>

@@ -65,10 +65,11 @@
   <h2>Your Groups</h2>
   <div class="group-list">
     {% for group in groups %}
-    <div class="group-item">
-      <div class="group-avatar">{{ group.group_name[0] | upper }}</div>
-      <div class="group-name">{{ group.group_name }}</div>
-    </div>
+  <a href="/group/{{ group._id }}" class="group-item">
+  <div class="group-avatar">{{ group.group_name[0] | upper }}</div>
+  <div class="group-name">{{ group.group_name }}</div>
+</a>
+
     {% endfor %}
   </div>
 </section>

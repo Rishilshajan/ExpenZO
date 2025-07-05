@@ -4,6 +4,7 @@ from datetime import timedelta, datetime
 import os
 from dotenv import load_dotenv
 from collections import defaultdict
+from bson.objectid import ObjectId
 
 load_dotenv()
 
@@ -61,6 +62,7 @@ def home():
     meta_col = db['meta']
     groups_col = db['groups']
     user_groups = list(groups_col.find({"creator_email": username}))   
+    group_expenses_col = db["group_expenses"]
 
 
     # Ensure meta info exists for user
@@ -138,6 +140,7 @@ def group_create():
             "group_name": group_name,
             "creator_email": session["user"]["email"],
             "members": members,
+            "group_expenses": 0,
             "created_at": datetime.now()
         })
 
@@ -146,6 +149,101 @@ def group_create():
     return render_template("create_group.html")
 
 
+#@app.route("/group/<group_id>")
+def group_detail(group_id):
+    if "user" not in session:
+        return redirect(url_for("auth"))
 
+    user_data = session["user"]
+    username = user_data.get("email")
+    user_phone = user_data.get("phone")
+
+    groups_col = db["groups"]
+    group_expenses_col = db["group_expenses"]
+
+    try:
+        group_obj_id = ObjectId(group_id)
+    except Exception as e:
+        return "Invalid Group ID", 400
+
+    group = groups_col.find_one({"_id": group_obj_id})
+    if not group:
+        return "Group not found", 404
+
+    # Check if current user is part of the group
+    is_member = any(m["phone"] == user_phone for m in group["members"])
+    if group["creator_email"] != username and not is_member:
+        return "Unauthorized", 403
+
+    # 1. Fetch all expenses related to this group
+    expenses = list(group_expenses_col.find({"group_id": group_obj_id}).sort("created_at", -1))
+
+    # 2. Initialize balance metrics
+    total_to_get = 0.0
+    total_to_pay = 0.0
+
+    # 3. Go through each expense and determine user's pay/get status
+    for exp in expenses:
+        splits = exp.get("splits", [])
+        for s in splits:
+            if s.get("phone") == user_phone:
+                role = s.get("role")
+                amt = float(s.get("amount", 0))
+                if role == "owes":
+                    total_to_pay += amt
+                elif role == "paid":
+                    total_to_get += amt
+
+    total_balance = total_to_get - total_to_pay
+
+    # 4. Pie Chart Analytics
+    category_data = defaultdict(float)
+    for exp in expenses:
+        category_data[exp.get("category", "Other")] += float(exp.get("amount", 0))
+
+    chart_labels = list(category_data.keys())
+    chart_values = list(category_data.values())
+
+    # 5. Render the group detail page
+    return render_template("group_detail.html",
+                           user=user_data,
+                           group=group,
+                           expenses=expenses,
+                           chart_labels=chart_labels,
+                           chart_data=chart_values,
+                           total_balance=round(total_balance, 2) if total_balance else 0.0,
+                           amount_to_pay=round(total_to_pay, 2) if total_to_pay else 0.0,
+                           amount_to_receive=round(total_to_get, 2) if total_to_get else 0.0)
+    
+
+@app.route("/group/<group_id>/add_expense", methods=["POST"])
+def add_group_expense(group_id):
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    title = data.get("title")
+    amount = float(data.get("amount", 0))
+    paid_by = data.get("paid_by")
+    splits = data.get("splits", [])
+
+    group_expenses_col = db["group_expenses"]
+
+    new_expense = {
+        "group_id": ObjectId(group_id),
+        "title": title,
+        "amount": amount,
+        "paid_by": paid_by,
+        "splits": splits,
+        "created_at": datetime.utcnow(),
+        "category": "General"
+    }
+
+    group_expenses_col.insert_one(new_expense)
+
+    return jsonify({"message": "Expense added successfully!"})
+
+
+    
 if __name__ == "__main__":
     app.run(debug=True)

@@ -6,8 +6,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const filterButtons = document.querySelectorAll(".filter-btn");
     const expenseItems = document.querySelectorAll(".expense-item");
     const profileBtn = document.getElementById("profile-btn");
-    const dropdown = document.getElementById('dropdown-menu');
-    
+    const dropdown = document.getElementById("dropdown-menu");
+    const fab = document.getElementById("fab");
+    const modal = document.getElementById("modal");
+    const close = document.getElementById("close");
+
     // === Restore Mode on Load ===
     const currentMode = localStorage.getItem("mode") || "light";
     applyMode(currentMode);
@@ -15,124 +18,143 @@ document.addEventListener("DOMContentLoaded", () => {
     function applyMode(mode) {
         if (mode === "dark") {
             document.body.classList.add("dark-mode");
-            toggleModeBtn.textContent = "☀️";
+            if (toggleModeBtn) toggleModeBtn.textContent = "☀️";
         } else {
             document.body.classList.remove("dark-mode");
-            toggleModeBtn.textContent = "🌙";
+            if (toggleModeBtn) toggleModeBtn.textContent = "🌙";
         }
     }
 
     // === Toggle Mode Button ===
-    toggleModeBtn.addEventListener("click", () => {
-        const newMode = document.body.classList.contains("dark-mode") ? "light" : "dark";
-        localStorage.setItem("mode", newMode);
-        applyMode(newMode); 
-    });
-
-document.getElementById("add-member-btn").addEventListener("click", () => {
-  const div = document.createElement("div");
-  div.classList.add("member");
-  div.innerHTML = `
-    <input type="text" class="member-name" placeholder="Member Name" required>
-    <input type="tel" class="member-phone" placeholder="Phone Number" required>
-  `;
-  document.getElementById("members-list").appendChild(div);
-});
-
-document.getElementById("create-group-btn").addEventListener("click", () => {
-  const groupName = document.getElementById("group-name").value.trim();
-  const nameElems = document.querySelectorAll(".member-name");
-  const phoneElems = document.querySelectorAll(".member-phone");
-
-  const members = [];
-  for (let i = 0; i < nameElems.length; i++) {
-    const name = nameElems[i].value.trim();
-    const phone = phoneElems[i].value.trim();
-    if (name && phone) {
-      members.push({ name, phone });
+    if (toggleModeBtn) {
+        toggleModeBtn.addEventListener("click", () => {
+            const newMode = document.body.classList.contains("dark-mode") ? "light" : "dark";
+            localStorage.setItem("mode", newMode);
+            applyMode(newMode);
+        });
     }
-  }
 
-  if (!groupName || members.length === 0) {
-    alert("Please enter group name and at least one member.");
-    return;
-  }
+    // === Add Member Button ===
+    const addMemberBtn = document.getElementById("add-member-btn");
+    if (addMemberBtn) {
+        addMemberBtn.addEventListener("click", () => {
+            const div = document.createElement("div");
+            div.classList.add("member");
+            div.innerHTML = `
+                <input type="text" class="member-name" placeholder="Member Name" required>
+                <input type="tel" class="member-phone" placeholder="Phone Number" required>
+            `;
+            const membersList = document.getElementById("members-list");
+            if (membersList) membersList.appendChild(div);
+        });
+    }
 
-  fetch("/create_group", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ group_name: groupName, members })
-  }).then(res => res.json())
-    .then(data => {
-      alert(data.message);
-      location.reload();
-    });
-});
+    // === Create Group Button ===
+    const createGroupBtn = document.getElementById("create-group-btn");
+    if (createGroupBtn) {
+        createGroupBtn.addEventListener("click", () => {
+            const groupName = document.getElementById("group-name").value.trim();
+            const nameElems = document.querySelectorAll(".member-name");
+            const phoneElems = document.querySelectorAll(".member-phone");
 
+            const members = [];
+            for (let i = 0; i < nameElems.length; i++) {
+                const name = nameElems[i].value.trim();
+                const phone = phoneElems[i].value.trim();
+                if (name && phone) {
+                    members.push({ name, phone });
+                }
+            }
+
+            if (!groupName || members.length === 0) {
+                alert("Please enter group name and at least one member.");
+                return;
+            }
+
+            fetch("/create_group", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ group_name: groupName, members })
+            }).then(res => res.json())
+                .then(data => {
+                    alert(data.message);
+                    location.reload();
+                });
+        });
+    }
 
     // === Show/hide new category input ===
-    categorySelect.addEventListener("change", () => {
-        if (categorySelect.value === "__new__") {
-            newCategoryInput.style.display = "block";
-            newCategoryInput.required = true;
-        } else {
-            newCategoryInput.style.display = "none";
-            newCategoryInput.required = false;
-        }
-    });
-
-    profileBtn.addEventListener("click", () => {
-        dropdown.style.display = dropdown.style.display === "flex" ? "none" : "flex";
-    });
-
-    // Optional: Click outside to close dropdown
-    document.addEventListener("click", (e) => {
-        if (!profileBtn.contains(e.target) && !dropdown.contains(e.target)) {
-            dropdown.style.display = "none";
-        }
-    });
-
-     fab.addEventListener("click", () => {
-    modal.style.display = "block";
-  });
-
-  close.addEventListener("click", () => {
-    modal.style.display = "none";
-  });
-
-  // Optional: click outside modal to close
-  window.addEventListener("click", (e) => {
-    if (e.target === modal) {
-      modal.style.display = "none";
+    if (categorySelect && newCategoryInput) {
+        categorySelect.addEventListener("change", () => {
+            if (categorySelect.value === "__new__") {
+                newCategoryInput.style.display = "block";
+                newCategoryInput.required = true;
+            } else {
+                newCategoryInput.style.display = "none";
+                newCategoryInput.required = false;
+            }
+        });
     }
-  });
 
+    // === Profile Button Dropdown ===
+    if (profileBtn && dropdown) {
+        profileBtn.addEventListener("click", () => {
+            dropdown.style.display = dropdown.style.display === "flex" ? "none" : "flex";
+        });
 
-    // === Category filter ===
-    filterButtons.forEach((button) => {
-        button.addEventListener("click", () => {
-            const selectedCategory = button.getAttribute("data-category");
-            filterButtons.forEach((btn) => btn.classList.remove("active"));
-            button.classList.add("active");
+        document.addEventListener("click", (e) => {
+            if (!profileBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.style.display = "none";
+            }
+        });
+    }
 
-            expenseItems.forEach((item) => {
-                const itemCategory = item.getAttribute("data-category");
-                const match =
-                    selectedCategory === "All" || itemCategory === selectedCategory;
-                item.style.display = match ? "flex" : "none";
+    // === FAB Modal Toggle ===
+    if (fab && modal && close) {
+        fab.addEventListener("click", () => {
+            modal.style.display = "block";
+        });
+
+        close.addEventListener("click", () => {
+            modal.style.display = "none";
+        });
+
+        window.addEventListener("click", (e) => {
+            if (e.target === modal) {
+                modal.style.display = "none";
+            }
+        });
+    }
+
+    // === Category Filter ===
+    if (filterButtons.length > 0 && expenseItems.length > 0) {
+        filterButtons.forEach((button) => {
+            button.addEventListener("click", () => {
+                const selectedCategory = button.getAttribute("data-category");
+                filterButtons.forEach((btn) => btn.classList.remove("active"));
+                button.classList.add("active");
+
+                expenseItems.forEach((item) => {
+                    const itemCategory = item.getAttribute("data-category");
+                    const match = selectedCategory === "All" || itemCategory === selectedCategory;
+                    item.style.display = match ? "flex" : "none";
+                });
             });
         });
-    });
+    }
 
-    // === Search filter ===
-    searchInput.addEventListener("input", () => {
-        const searchTerm = searchInput.value.toLowerCase();
-        expenseItems.forEach((item) => {
-            const text = item.textContent.toLowerCase();
-            item.style.display = text.includes(searchTerm) ? "flex" : "none";
+    // === Search Filter ===
+    if (searchInput && expenseItems.length > 0) {
+        searchInput.addEventListener("input", () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            expenseItems.forEach((item) => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(searchTerm) ? "flex" : "none";
+            });
         });
-    });
+    }
 });
+
 
 // === Pie Chart Rendering ===
 document.addEventListener("DOMContentLoaded", function () {
