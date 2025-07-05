@@ -8,7 +8,7 @@ from bson.objectid import ObjectId
 
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder ="static")
 app.secret_key = os.getenv("SECRET_KEY") or "fallback_secret_key"
 app.permanent_session_lifetime = timedelta(days=7)
 db = get_db()
@@ -149,7 +149,7 @@ def group_create():
     return render_template("create_group.html")
 
 
-#@app.route("/group/<group_id>")
+@app.route("/group/<group_id>")
 def group_detail(group_id):
     if "user" not in session:
         return redirect(url_for("auth"))

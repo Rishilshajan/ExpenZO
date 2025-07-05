@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   const modal = document.getElementById("expense-modal");
-  const openBtn = document.getElementById("add-expense-btn");
+  const openBtn = document.getElementById("open-expense-modal");
   const closeBtn = document.getElementById("close-expense");
   const splitTypeRadios = document.querySelectorAll('input[name="split-type"]');
   const customSplitSection = document.getElementById("custom-split-section");

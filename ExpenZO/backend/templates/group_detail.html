@@ -6,20 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/group_detail.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script defer src="{{url_for('static', filename='js/group_detail,js")}}>
-        
-    </script>
+    <script defer src="{{ url_for('static', filename='js/group_details.js') }}"></script>
+
 </head>
 <body>
 <!-- group_detail.html - Section 1 -->
 <div class="section-summary">
     <!-- Total Balance -->
-    <div class="summary-box">
-        <h3>Total Balance</h3>
-        <div class="amount {{ 'amount-positive' if total_balance >= 0 else 'amount-negative' }}">
-            ₹ {{ "{:,.2f}".format(total_balance) }}
-        </div>
+   <div class="summary-box">
+    <h3>Total Balance</h3>
+    <div class="{% if total_balance >= 0 %}amount amount-positive{% else %}amount amount-negative{% endif %}">
+        ₹ {{ "{:,.2f}".format(total_balance) }}
     </div>
+</div>
+
 
     <!-- Amount to Pay -->
     <div class="summary-box">
@@ -40,8 +40,6 @@
     <!-- Add Expense Button -->
     <button class="add-expense-btn" id="open-expense-modal">➕ Add Expense</button>
 
-    <!-- Add Expense Button -->
-<button id="add-expense-btn" class="btn">+ Add Expense</button>
 
 <!-- Expense Modal -->
 <div id="expense-modal" class="modal">
@@ -59,7 +57,7 @@
       <label>Who Paid?</label>
       <select id="paid-by" required>
         {% for member in group.members %}
-          <option value="{{ member.phone }}">{{ member.name }} ({{ member.phone }})</option>
+          <option value="{{ member.phone }}">{{ member.name }}</option>
         {% endfor %}
       </select>
 
