@@ -63,17 +63,32 @@ def set_session():
         return jsonify({"error": "Invalid data"}), 400
 
     session['user'] = data
-
-    # Store in Mongo if new
     users_col = db["users"]
-    if not users_col.find_one({"email": data['email']}):
+
+    existing_user = users_col.find_one({"email": data['email']})
+
+    # NEW USER (signup)
+    if not existing_user:
         users_col.insert_one(data)
+        # If phone is missing in signup data, redirect to phone page
+        if not data.get("phone"):
+            return jsonify({"redirect": "/collect_phone"})
+        return jsonify({"redirect": "/home"})
 
-    # Check if phone is missing → redirect to phone form
-    if not data.get("phone"):
-        return jsonify({"redirect": "/collect_phone"})
-
-    return jsonify({"redirect": "/home"})
+    # EXISTING USER (login)
+    else:
+        # Use phone from DB if available
+        if not existing_user.get("phone"):
+            return jsonify({"redirect": "/collect_phone"})
+        
+        # Populate session with existing user data
+        session['user'] = {
+            "email": existing_user["email"],
+            "name": existing_user.get("name", ""),
+            "phone": existing_user.get("phone", ""),
+            "photo": existing_user.get("photo", "")
+        }
+        return jsonify({"redirect": "/home"})
 
 
 
