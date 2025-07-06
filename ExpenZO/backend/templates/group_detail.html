@@ -104,5 +104,66 @@
 
 </div>
 
+<!-- Section 2 - Tabbed Interface -->
+<div class="tab-container">
+  <div class="tab-switcher">
+    <div class="tab active" data-tab="members">🧑‍🤝‍🧑 Members</div>
+    <div class="tab" data-tab="balance">💸 Balance</div>
+    <div class="tab" data-tab="history">🕒 History</div>
+    <div class="tab" data-tab="analytics">📊 Analytics</div>
+  </div>
+
+  <div class="tab-content active" id="tab-members">
+    <!-- Member List Will Come Here -->
+
+    <!-- Members Modal (Admin Only) -->
+{% if current_user_phone == group.created_by %}
+<div id="members-modal" class="modal">
+  <div class="modal-content members-modal">
+    <span id="close-members-modal" class="close">&times;</span>
+    <h2>Manage Group Members</h2>
+
+    <!-- Member List -->
+    <div id="member-list">
+      {% for member in group.members %}
+        <div class="member-item">
+          <div>
+            <strong>{{ member.name }}</strong><br>
+            <small>{{ member.phone }}</small>
+          </div>
+          <div class="member-actions">
+            <button class="edit-member-btn" data-phone="{{ member.phone }}" data-name="{{ member.name }}">✏️</button>
+            <button class="delete-member-btn" data-phone="{{ member.phone }}">🗑️</button>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <hr>
+
+    <!-- Add New Member Form -->
+    <form id="add-member-form">
+      <h3>Add New Member</h3>
+      <input type="text" id="new-member-name" placeholder="Name" required>
+      <input type="tel" id="new-member-phone" placeholder="Phone Number" required>
+      <button type="submit">Add Member</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+  </div>
+  <div class="tab-content" id="tab-balance">
+    <!-- Balance Info Will Come Here -->
+  </div>
+  <div class="tab-content" id="tab-history">
+    <!-- Expense History Will Come Here -->
+  </div>
+  <div class="tab-content" id="tab-analytics">
+    <!-- Charts Will Come Here -->
+  </div>
+</div>
+
+
 </body>
 </html>

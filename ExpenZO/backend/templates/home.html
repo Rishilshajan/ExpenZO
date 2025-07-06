@@ -97,14 +97,27 @@
                {% endfor %}
             </div>
 
-            <ul id="expense-list">
-            {% for expense in expenses %}
-            <li class="expense-item" data-category="{{ expense.category }}">
-            <span><strong>{{ expense.reason }}</strong> - ₹{{ expense.amount }}</span>
-            <small>{{ expense.category }}</small>
-            </li>
-            {% endfor %}
-            </ul>
+          <ul id="expense-list">
+  {% for expense in expenses %}
+  <li class="expense-item" data-category="{{ expense.category }}">
+    <div class="expense-row">
+      <div class="expense-col reason">
+        <strong>{{ expense.reason }}</strong>
+      </div>
+      <div class="expense-col amount">
+        ₹{{ expense.amount }}
+      </div>
+      <div class="expense-col date">
+        {{ expense.timestamp.strftime('%B %-d, %Y') if expense.timestamp else 'No date' }}
+      </div>
+      <div class="expense-col category">
+        {{ expense.category }}
+      </div>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+
         </section>
 
     </div>

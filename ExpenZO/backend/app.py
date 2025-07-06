@@ -285,27 +285,6 @@ def add_group_expense(group_id):
         "amount_to_pay": amount_to_pay,
         "amount_to_receive": amount_to_get
     })
-
-# ✅ What Was Updated
-
-#     Ensured each user's view is dynamically computed based on session["user"]["phone"]
-#     Created helper function calculate_user_balance() to reuse balance logic.
-
-#     Recalculated updated balances after adding an expense and sent them back to frontend via JSON.
-
-# ✅ What You Need to Do
-
-#     Ensure session contains "user" with fields "phone" and "email" after login.
-
-#     Make sure MongoDB collections:
-
-#         groups: Stores each group with members and creator_email.
-
-#         group_expenses: Stores expenses with group_id, splits, etc.
-
-# Let me know if you need the updated template (HTML) and JavaScript as well, though what you shared previously is already compatible with this.
-
-
     
 if __name__ == "__main__":
     app.run(debug=True)
