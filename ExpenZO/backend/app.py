@@ -13,6 +13,11 @@ app.secret_key = os.getenv("SECRET_KEY") or "fallback_secret_key"
 app.permanent_session_lifetime = timedelta(days=7)
 db = get_db()
 
+meta_col = db['meta']
+groups_col = db['groups']
+group_expenses_col = db["group_expenses"]
+
+
 # 1. Preloader Route - Page Loader
 @app.route('/')
 def pageloader():
@@ -31,19 +36,46 @@ def auth():
     }
     return render_template("auth.html", firebase_config=firebase_config)
 
-# 3. Save session from JS (after Firebase login)
+@app.route('/collect_phone', methods=['GET', 'POST'])
+def collect_phone():
+    if 'user' not in session:
+        return redirect(url_for('auth'))
+
+    user = session['user']
+    users_col = db['users']
+    
+    if request.method == 'POST':
+        phone = request.form.get('phone', '').strip()
+        if phone:
+            users_col.update_one({'email': user['email']}, {'$set': {'phone': phone}})
+            session['user']['phone'] = phone  # update session too
+            return redirect(url_for('home'))
+        else:
+            return render_template("collect_phone.html", error="Phone number is required")
+
+    return render_template("collect_phone.html")
+
+
 @app.route('/set_session', methods=['POST'])
 def set_session():
-    data = request.json
+    data = request.get_json()
     if not data or 'email' not in data:
-        return jsonify({"message": "Invalid data"}), 400
+        return jsonify({"error": "Invalid data"}), 400
 
-    session['user'] = data  # Save to Flask session
+    session['user'] = data
 
-    # Optional: Add user to MongoDB if not exists
+    # Store in Mongo if new
     users_col = db["users"]
     if not users_col.find_one({"email": data['email']}):
         users_col.insert_one(data)
+
+    # Check if phone is missing → redirect to phone form
+    if not data.get("phone"):
+        return jsonify({"redirect": "/collect_phone"})
+
+    return jsonify({"redirect": "/home"})
+
+
 
     return jsonify({"message": "Session stored"}), 200
 
@@ -148,6 +180,20 @@ def group_create():
 
     return render_template("create_group.html")
 
+def calculate_user_balance(group_id, user_phone):
+    expenses = list(group_expenses_col.find({"group_id": ObjectId(group_id)}))
+    total_to_get, total_to_pay = 0.0, 0.0
+
+    for exp in expenses:
+        for split in exp.get("splits", []):
+            if split.get("phone") == user_phone:
+                amt = float(split.get("amount", 0))
+                if split.get("role") == "owes":
+                    total_to_pay += amt
+                elif split.get("role") == "paid":
+                    total_to_get += amt
+
+    return round(total_to_get - total_to_pay, 2), round(total_to_pay, 2), round(total_to_get, 2)
 
 @app.route("/group/<group_id>")
 def group_detail(group_id):
@@ -158,45 +204,22 @@ def group_detail(group_id):
     username = user_data.get("email")
     user_phone = user_data.get("phone")
 
-    groups_col = db["groups"]
-    group_expenses_col = db["group_expenses"]
-
     try:
         group_obj_id = ObjectId(group_id)
-    except Exception as e:
+    except:
         return "Invalid Group ID", 400
 
     group = groups_col.find_one({"_id": group_obj_id})
     if not group:
         return "Group not found", 404
 
-    # Check if current user is part of the group
     is_member = any(m["phone"] == user_phone for m in group["members"])
     if group["creator_email"] != username and not is_member:
         return "Unauthorized", 403
 
-    # 1. Fetch all expenses related to this group
     expenses = list(group_expenses_col.find({"group_id": group_obj_id}).sort("created_at", -1))
+    total_balance, total_to_pay, total_to_get = calculate_user_balance(group_id, user_phone)
 
-    # 2. Initialize balance metrics
-    total_to_get = 0.0
-    total_to_pay = 0.0
-
-    # 3. Go through each expense and determine user's pay/get status
-    for exp in expenses:
-        splits = exp.get("splits", [])
-        for s in splits:
-            if s.get("phone") == user_phone:
-                role = s.get("role")
-                amt = float(s.get("amount", 0))
-                if role == "owes":
-                    total_to_pay += amt
-                elif role == "paid":
-                    total_to_get += amt
-
-    total_balance = total_to_get - total_to_pay
-
-    # 4. Pie Chart Analytics
     category_data = defaultdict(float)
     for exp in expenses:
         category_data[exp.get("category", "Other")] += float(exp.get("amount", 0))
@@ -204,17 +227,15 @@ def group_detail(group_id):
     chart_labels = list(category_data.keys())
     chart_values = list(category_data.values())
 
-    # 5. Render the group detail page
     return render_template("group_detail.html",
                            user=user_data,
                            group=group,
                            expenses=expenses,
                            chart_labels=chart_labels,
                            chart_data=chart_values,
-                           total_balance=round(total_balance, 2) if total_balance else 0.0,
-                           amount_to_pay=round(total_to_pay, 2) if total_to_pay else 0.0,
-                           amount_to_receive=round(total_to_get, 2) if total_to_get else 0.0)
-    
+                           total_balance=total_balance,
+                           amount_to_pay=total_to_pay,
+                           amount_to_receive=total_to_get)
 
 @app.route("/group/<group_id>/add_expense", methods=["POST"])
 def add_group_expense(group_id):
@@ -226,8 +247,6 @@ def add_group_expense(group_id):
     amount = float(data.get("amount", 0))
     paid_by = data.get("paid_by")
     splits = data.get("splits", [])
-
-    group_expenses_col = db["group_expenses"]
 
     new_expense = {
         "group_id": ObjectId(group_id),
@@ -241,7 +260,35 @@ def add_group_expense(group_id):
 
     group_expenses_col.insert_one(new_expense)
 
-    return jsonify({"message": "Expense added successfully!"})
+    # Recalculate updated balances
+    user_phone = session["user"]["phone"]
+    total_balance, amount_to_pay, amount_to_get = calculate_user_balance(group_id, user_phone)
+
+    return jsonify({
+        "message": "Expense added successfully!",
+        "total_balance": total_balance,
+        "amount_to_pay": amount_to_pay,
+        "amount_to_receive": amount_to_get
+    })
+
+# ✅ What Was Updated
+
+#     Ensured each user's view is dynamically computed based on session["user"]["phone"]
+#     Created helper function calculate_user_balance() to reuse balance logic.
+
+#     Recalculated updated balances after adding an expense and sent them back to frontend via JSON.
+
+# ✅ What You Need to Do
+
+#     Ensure session contains "user" with fields "phone" and "email" after login.
+
+#     Make sure MongoDB collections:
+
+#         groups: Stores each group with members and creator_email.
+
+#         group_expenses: Stores expenses with group_id, splits, etc.
+
+# Let me know if you need the updated template (HTML) and JavaScript as well, though what you shared previously is already compatible with this.
 
 
     

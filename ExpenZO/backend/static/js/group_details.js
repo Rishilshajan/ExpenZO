@@ -6,64 +6,62 @@ document.addEventListener("DOMContentLoaded", () => {
   const customSplitSection = document.getElementById("custom-split-section");
   const checkboxes = document.querySelectorAll('#member-checkboxes input[type="checkbox"]');
   const customSplitsDiv = document.getElementById("custom-splits");
+  const scrollBtn = document.getElementById("scroll-to-top");
+  const modalContent = document.querySelector(".modal-content");
 
-  // Open modal
+  // Scroll-to-top logic
+  modalContent.addEventListener("scroll", () => {
+    scrollBtn.style.display = modalContent.scrollTop > 150 ? "block" : "none";
+  });
+
+  scrollBtn.onclick = () => {
+    modalContent.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Open/Close modal
   openBtn.onclick = () => modal.style.display = "block";
   closeBtn.onclick = () => modal.style.display = "none";
-
-  // Click outside closes modal
   window.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
 
-  // Handle split type toggle
+  // Handle Split Type toggle
   splitTypeRadios.forEach(radio => {
     radio.addEventListener("change", () => {
       if (radio.value === "custom") {
         customSplitSection.style.display = "block";
-
-        customSplitsDiv.innerHTML = '';
-        checkboxes.forEach(cb => {
-          if (cb.checked) {
-            const phone = cb.value;
-            const label = cb.nextElementSibling.innerText;
-
-            const div = document.createElement("div");
-            div.innerHTML = `
-              <label>${label}:</label>
-              <input type="number" name="custom-split" data-phone="${phone}" min="0" required>
-            `;
-            customSplitsDiv.appendChild(div);
-          }
-        });
+        populateCustomInputs();
       } else {
         customSplitSection.style.display = "none";
       }
     });
   });
 
-  // Auto-populate custom split inputs when members are selected
+  // Repopulate custom inputs on checkbox change
   checkboxes.forEach(cb => {
     cb.addEventListener("change", () => {
-      const customChecked = document.querySelector('input[name="split-type"]:checked').value === "custom";
-      if (!customChecked) return;
-
-      customSplitsDiv.innerHTML = '';
-      checkboxes.forEach(cb => {
-        if (cb.checked) {
-          const phone = cb.value;
-          const label = cb.nextElementSibling.innerText;
-
-          const div = document.createElement("div");
-          div.innerHTML = `
-            <label>${label}:</label>
-            <input type="number" name="custom-split" data-phone="${phone}" min="0" required>
-          `;
-          customSplitsDiv.appendChild(div);
-        }
-      });
+      const isCustom = document.querySelector('input[name="split-type"]:checked').value === "custom";
+      if (isCustom) populateCustomInputs();
     });
   });
 
-  // Submit Form
+  function populateCustomInputs() {
+  customSplitsDiv.innerHTML = '';
+  checkboxes.forEach(cb => {
+    if (cb.checked) {
+      const phone = cb.value;
+      const label = cb.nextElementSibling.innerText;
+
+      const div = document.createElement("div");
+      div.innerHTML = `
+        <label>${label}:</label>
+        <input type="number" name="custom-split" data-phone="${phone}" min="0">
+      `;
+      customSplitsDiv.appendChild(div);
+    }
+  });
+}
+
+
+  // Handle Form Submission
   document.getElementById("expense-form").addEventListener("submit", function (e) {
     e.preventDefault();
 
@@ -75,6 +73,11 @@ document.addEventListener("DOMContentLoaded", () => {
       .filter(cb => cb.checked)
       .map(cb => cb.value);
 
+    if (selectedMembers.length === 0) {
+      alert("Please select at least one member to split the amount.");
+      return;
+    }
+
     const splitType = document.querySelector('input[name="split-type"]:checked').value;
     let splits = [];
 
@@ -85,16 +88,26 @@ document.addEventListener("DOMContentLoaded", () => {
         amount: share,
         role: phone === paidBy ? "paid" : "owes"
       }));
-    } else {
-      const inputs = document.querySelectorAll('#custom-splits input');
-      splits = Array.from(inputs).map(input => ({
-        phone: input.dataset.phone,
-        amount: parseFloat(input.value),
-        role: input.dataset.phone === paidBy ? "paid" : "owes"
-      }));
-    }
+    } 
 
-    // Post to Flask backend
+    if (splitType === "custom") {
+  const inputs = document.querySelectorAll('#custom-splits input');
+  splits = Array.from(inputs).map(input => ({
+    phone: input.dataset.phone,
+    amount: parseFloat(input.value),
+    role: input.dataset.phone === paidBy ? "paid" : "owes"
+  }));
+
+  // ✅ Check all custom amounts are valid
+  const hasEmpty = splits.some(s => isNaN(s.amount) || s.amount <= 0);
+  if (hasEmpty) {
+    alert("Please fill all custom split amounts correctly.");
+    return;
+  }
+}
+
+
+    // Send to backend
     fetch(window.location.pathname + "/add_expense", {
       method: "POST",
       headers: { 'Content-Type': 'application/json' },
@@ -107,8 +120,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }).then(res => res.json())
       .then(data => {
         alert(data.message);
-        location.reload();
-      }).catch(err => {
+
+       // ✅ Update UI using IDs
+document.getElementById("total-balance").textContent = `₹ ${data.total_balance.toFixed(2)}`;
+document.getElementById("amount-to-pay").textContent = `₹ ${data.amount_to_pay.toFixed(2)}`;
+document.getElementById("amount-to-get").textContent = `₹ ${data.amount_to_receive.toFixed(2)}`;
+
+// ✅ Update balance color based on positive/negative
+const totalEl = document.getElementById("total-balance");
+totalEl.className = `amount ${data.total_balance >= 0 ? "amount-positive" : "amount-negative"}`;
+
+
+        modal.style.display = "none";
+        document.getElementById("expense-form").reset();
+        customSplitSection.style.display = "none";
+        customSplitsDiv.innerHTML = '';
+      })
+      .catch(err => {
         alert("Error adding expense");
         console.error(err);
       });

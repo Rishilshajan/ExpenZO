@@ -13,29 +13,27 @@
 <!-- group_detail.html - Section 1 -->
 <div class="section-summary">
     <!-- Total Balance -->
-   <div class="summary-box">
+  <div class="summary-box">
     <h3>Total Balance</h3>
-    <div class="{% if total_balance >= 0 %}amount amount-positive{% else %}amount amount-negative{% endif %}">
+    <div id="total-balance" class="{% if total_balance >= 0 %}amount amount-positive{% else %}amount amount-negative{% endif %}">
         ₹ {{ "{:,.2f}".format(total_balance) }}
     </div>
 </div>
 
-
-    <!-- Amount to Pay -->
-    <div class="summary-box">
-        <h3>Amount to Pay</h3>
-        <div class="amount amount-negative">
-            ₹ {{ "{:,.2f}".format(amount_to_pay) }}
-        </div>
+<div class="summary-box">
+    <h3>Amount to Pay</h3>
+    <div id="amount-to-pay" class="amount amount-negative">
+        ₹ {{ "{:,.2f}".format(amount_to_pay) }}
     </div>
+</div>
 
-    <!-- Amount to Receive -->
-    <div class="summary-box">
-        <h3>Amount to Get</h3>
-        <div class="amount amount-positive">
-            ₹ {{ "{:,.2f}".format(amount_to_receive) }}
-        </div>
+<div class="summary-box">
+    <h3>Amount to Get</h3>
+    <div id="amount-to-get" class="amount amount-positive">
+        ₹ {{ "{:,.2f}".format(amount_to_receive) }}
     </div>
+</div>
+
 
     <!-- Add Expense Button -->
     <button class="add-expense-btn" id="open-expense-modal">➕ Add Expense</button>
@@ -85,6 +83,21 @@
       </div>
 
       <button type="submit">Submit Expense</button>
+
+      <button id="scroll-to-top" style="
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: #ff5722;
+  color: #fff;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: none;
+  z-index: 1001;
+">↑ Top</button>
+
     </form>
   </div>
 </div>

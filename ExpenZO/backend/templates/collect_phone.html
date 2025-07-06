@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Enter Your Phone | ExpenZO</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/collect_phone.css') }}">
+</head>
+<body>
+    <div class="phone-form-container">
+        <h2>Complete your Profile</h2>
+        <p>We need your phone number to connect you with groups.</p>
+        {% if error %}
+            <p style="color: red;">{{ error }}</p>
+        {% endif %}
+        <form method="POST">
+            <input type="tel" name="phone" placeholder="Enter your phone number" required>
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+</body>
+</html>

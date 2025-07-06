@@ -1,0 +1,77 @@
+/* Fullscreen background with blur overlay */
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: "Segoe UI", sans-serif;
+    background: url("/static/images/your-bg.jpg") no-repeat center center fixed;
+    background-size: cover;
+    position: relative;
+}
+
+/* Blurred dark overlay */
+body::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.5);  /* darken layer */
+    backdrop-filter: blur(8px);
+    z-index: 0;
+}
+
+/* Centered form container */
+.phone-form-container {
+    position: relative;
+    z-index: 1;
+    max-width: 400px;
+    margin: auto;
+    margin-top: 10%;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    text-align: center;
+}
+
+.phone-form-container h2 {
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.phone-form-container p {
+    font-size: 14px;
+    color: #666;
+}
+
+.phone-form-container input[type="tel"] {
+    width: 100%;
+    padding: 12px;
+    margin: 15px 0;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.phone-form-container button {
+    width: 100%;
+    padding: 12px;
+    background-color: #007bff;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.phone-form-container button:hover {
+    background-color: #0056b3;
+}
+
+@media screen and (max-width: 500px) {
+    .phone-form-container {
+        width: 90%;
+        margin-top: 25%;
+    }
+}
