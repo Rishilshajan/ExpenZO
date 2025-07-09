@@ -186,6 +186,7 @@ def group_create():
         db.groups.insert_one({
             "group_name": group_name,
             "creator_email": session["user"]["email"],
+            "creator_phone":session["user"]["phone"],
             "members": members,
             "group_expenses": 0,
             "created_at": datetime.now()
@@ -246,6 +247,7 @@ def group_detail(group_id):
                            user=user_data,
                            group=group,
                            expenses=expenses,
+                           current_user_phone=user_phone,
                            chart_labels=chart_labels,
                            chart_data=chart_values,
                            total_balance=total_balance,
@@ -285,6 +287,100 @@ def add_group_expense(group_id):
         "amount_to_pay": amount_to_pay,
         "amount_to_receive": amount_to_get
     })
+
+@app.route('/group/<group_id>/delete_member', methods=['POST'])
+def delete_member(group_id):
+    if 'user' not in session:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    data = request.get_json()
+    phone = data.get('phone')
+    current_user_phone = session["user"].get("phone")
+
+    group = groups_col.find_one({"_id": ObjectId(group_id)})
+    if not group:
+        return jsonify({"message": "Group not found"}), 404
+
+    if group['creator_phone'] != current_user_phone:
+        return jsonify({"message": "Only admin can delete members"}), 403
+
+    updated_members = [m for m in group["members"] if m["phone"] != phone]
+    groups_col.update_one(
+        {"_id": ObjectId(group_id)},
+        {"$set": {"members": updated_members}}
+    )
+
+    return jsonify({"message": "Member deleted successfully"})
+
+@app.route('/group/<group_id>/edit_member', methods=['POST'])
+def edit_member(group_id):
+    if 'user' not in session:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    data = request.get_json()
+    original_phone = data.get("original_phone", "").strip()
+    new_name = data.get("name", "").strip()
+
+    current_user_phone = session["user"].get("phone")
+    group = groups_col.find_one({"_id": ObjectId(group_id)})
+
+    if not group:
+        return jsonify({"message": "Group not found"}), 404
+    if group["creator_phone"] != current_user_phone:
+        return jsonify({"message": "Only admin can edit members"}), 403
+
+    # ✅ Modify the matching member
+    updated_members = []
+    found = False
+    for m in group["members"]:
+        if m["phone"] == original_phone:
+            updated_members.append({"phone": m["phone"], "name": new_name})
+            found = True
+        else:
+            updated_members.append(m)
+
+    if not found:
+        return jsonify({"message": "Member not found"}), 404
+
+    groups_col.update_one(
+        {"_id": ObjectId(group_id)},
+        {"$set": {"members": updated_members}}
+    )
+
+    updated_group = groups_col.find_one({"_id": ObjectId(group_id)})
+    return jsonify({"message": "Member updated successfully", "members": updated_group["members"]})
+
+
+@app.route('/group/<group_id>/add_member', methods=['POST'])
+def add_member(group_id):
+    if 'user' not in session:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    data = request.get_json()
+    name = data.get("name", "").strip()
+    phone = data.get("phone", "").strip()
+
+    current_user_phone = session["user"].get("phone")
+    group = groups_col.find_one({"_id": ObjectId(group_id)})
+
+    if not group:
+        return jsonify({"message": "Group not found"}), 404
+    if group["creator_phone"] != current_user_phone:
+        return jsonify({"message": "Only admin can add members"}), 403
+
+    if any(m["phone"] == phone for m in group["members"]):
+        return jsonify({"message": "Member already exists"}), 400
+
+    # ✅ Push new member
+    groups_col.update_one(
+        {"_id": ObjectId(group_id)},
+        {"$push": {"members": {"name": name, "phone": phone}}}
+    )
+
+    updated_group = groups_col.find_one({"_id": ObjectId(group_id)})
+    return jsonify({"message": "Member added successfully", "members": updated_group["members"]})
+
+    
     
 if __name__ == "__main__":
     app.run(debug=True)

@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/group_detail.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script defer src="{{ url_for('static', filename='js/group_details.js') }}"></script>
 
 </head>
 <body>
@@ -114,43 +113,51 @@
   </div>
 
   <div class="tab-content active" id="tab-members">
-    <!-- Member List Will Come Here -->
-
-    <!-- Members Modal (Admin Only) -->
-{% if current_user_phone == group.created_by %}
-<div id="members-modal" class="modal">
-  <div class="modal-content members-modal">
-    <span id="close-members-modal" class="close">&times;</span>
-    <h2>Manage Group Members</h2>
-
-    <!-- Member List -->
-    <div id="member-list">
+  <div id="members-section">
+    <h3>Group Members</h3>
+    
+    <ul id="member-list">
       {% for member in group.members %}
-        <div class="member-item">
-          <div>
-            <strong>{{ member.name }}</strong><br>
-            <small>{{ member.phone }}</small>
-          </div>
+        <li class="member-item">
+          <span>{{ member.name }} ({{ member.phone }})</span>
+
+          {% if current_user_phone == group.creator_phone %}
+          <!-- Admin-only controls -->
           <div class="member-actions">
-            <button class="edit-member-btn" data-phone="{{ member.phone }}" data-name="{{ member.name }}">✏️</button>
-            <button class="delete-member-btn" data-phone="{{ member.phone }}">🗑️</button>
+            <button class="edit-btn" onclick="editMember('{{ member.phone }}')">✏️</button>
+            <button class="delete-btn" onclick="deleteMember('{{ member.phone }}')">🗑️</button>
           </div>
-        </div>
+          {% endif %}
+        </li>
       {% endfor %}
-    </div>
+    </ul>
 
-    <hr>
+     {% if current_user_phone == group.creator_phone %}
+    <button class="add-member-btn" onclick="openAddMemberModal()">➕ Add Member</button>
+    {% endif %} 
+  </div>
+ <div id="member-modal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <span onclick="closeMemberModal()" class="close">&times;</span>
+    <h2 id="member-modal-title">Add Member</h2>
+    <form id="member-form">
+      <input type="hidden" id="member-mode" value="add">
+      <input type="hidden" id="member-phone-original"> <!-- used for editing -->
 
-    <!-- Add New Member Form -->
-    <form id="add-member-form">
-      <h3>Add New Member</h3>
-      <input type="text" id="new-member-name" placeholder="Name" required>
-      <input type="tel" id="new-member-phone" placeholder="Phone Number" required>
-      <button type="submit">Add Member</button>
+      <label>Name:</label>
+      <input type="text" id="member-name" required>
+
+      <label>Phone:</label>
+      <input type="tel" id="member-phone" pattern="[0-9]{10}" required>
+
+      <button type="submit" id="member-submit-btn">Save</button>
     </form>
   </div>
 </div>
-{% endif %}
+
+
+</div>
+
 
   </div>
   <div class="tab-content" id="tab-balance">
@@ -164,6 +171,6 @@
   </div>
 </div>
 
-
+<script src="{{ url_for('static', filename='js/group_details.js') }}"></script>
 </body>
 </html>
