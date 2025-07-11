@@ -389,3 +389,114 @@
 .close:hover {
   color: #ff4d4f;
 }
+
+/* Typography */
+.section-title {
+  font-size: 1.4rem;
+  margin: 20px 0 10px;
+  color: #222;
+}
+
+/* Balance layout */
+.balance-columns {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.balance-card {
+  flex: 1 1 45%;
+  padding: 15px;
+  border-radius: 12px;
+  background: #f9f9f9;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.card-negative {
+  border-left: 5px solid #ff4d4f;
+}
+
+.card-positive {
+  border-left: 5px solid #4caf50;
+}
+
+.balance-entry {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+}
+
+.balance-entry span {
+  flex: 1;
+}
+
+.balance-entry button {
+  margin-left: 10px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 5px;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.balance-entry button:first-child {
+  background-color: #1f8ef1; /* GPay */
+}
+
+.balance-entry button:last-child {
+  background-color: #4caf50; /* Manual */
+}
+
+/* Divider */
+.divider {
+  border: none;
+  height: 1px;
+  background: #ccc;
+  margin: 30px 0;
+}
+
+/* Timeline */
+.timeline {
+  position: relative;
+  padding-left: 20px;
+  border-left: 2px solid #ccc;
+}
+
+.timeline-entry {
+  margin-bottom: 20px;
+  position: relative;
+  padding-left: 20px;
+}
+
+.timeline-entry .dot {
+  position: absolute;
+  left: -9px;
+  top: 5px;
+  width: 12px;
+  height: 12px;
+  background-color: #1f8ef1; /* Blue for current user */
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+.timeline-entry .content {
+  background: #f1f1f1;
+  padding: 10px 15px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.timeline-entry .timestamp {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 5px;
+}

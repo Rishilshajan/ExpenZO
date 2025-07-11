@@ -109,29 +109,28 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      // Send to backend
-      fetch(window.location.pathname + "/add_expense", {
-        method: "POST",
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, amount, paid_by: paidBy, splits })
-      })
-        .then(res => res.json())
-        .then(data => {
-          alert(data.message);
-          document.getElementById("total-balance").textContent = `₹ ${data.total_balance.toFixed(2)}`;
-          document.getElementById("amount-to-pay").textContent = `₹ ${data.amount_to_pay.toFixed(2)}`;
-          document.getElementById("amount-to-get").textContent = `₹ ${data.amount_to_receive.toFixed(2)}`;
-          const totalEl = document.getElementById("total-balance");
-          totalEl.className = `amount ${data.total_balance >= 0 ? "amount-positive" : "amount-negative"}`;
-          modal.style.display = "none";
-          expenseForm.reset();
-          customSplitSection.style.display = "none";
-          customSplitsDiv.innerHTML = '';
-        })
-        .catch(err => {
-          alert("Error adding expense");
-          console.error(err);
-        });
+     fetch(window.location.pathname + "/add_expense", {
+  method: "POST",
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ title, amount, paid_by: paidBy, splits })
+})
+  .then(res => {
+    if (!res.ok) {
+      return res.text().then(text => {
+        throw new Error(`Server error: ${text}`);
+      });
+    }
+    return res.json();
+  })
+  .then(data => {
+    alert(data.message);
+    // ... update UI
+  })
+  .catch(err => {
+    alert("Error adding expense");
+    console.error("Fetch error:", err.message);
+  });
+
     });
   }
 
@@ -231,4 +230,82 @@ if (memberForm) {
         console.error(err);
       });
   });
+}
+
+function loadBalanceData() {
+  fetch(window.location.pathname + "/my_balances")
+    .then(res => res.json())
+    .then(data => {
+      renderBalances(data);
+    })
+    .catch(err => {
+      console.error("Error fetching balance data:", err);
+    });
+}
+
+function renderBalances(data) {
+  const toPayList = document.getElementById("to-pay-list");
+  const toGetList = document.getElementById("to-get-list");
+  const timeline = document.getElementById("balance-timeline");
+
+  toPayList.innerHTML = "";
+  toGetList.innerHTML = "";
+  timeline.innerHTML = "";
+
+  data.to_pay.forEach(entry => {
+    toPayList.innerHTML += `
+      <div class="balance-entry">
+        <span>Pay ₹${entry.amount} to ${entry.name}</span>
+        <button onclick="settlePayment('${entry.phone}', ${entry.amount}, 'gpay')">GPay</button>
+        <button onclick="settlePayment('${entry.phone}', ${entry.amount}, 'manual')">Mark as Paid</button>
+      </div>
+    `;
+  });
+
+  data.to_get.forEach(entry => {
+    toGetList.innerHTML += `
+      <div class="balance-entry">
+        <span>${entry.name} owes you ₹${entry.amount}</span>
+      </div>
+    `;
+  });
+
+  data.transactions.forEach(tx => {
+    const direction = tx.direction === "pay" ? "Paid to" : "Received from";
+    const date = new Date(tx.date).toLocaleString();
+
+    timeline.innerHTML += `
+      <div class="timeline-entry">
+        <div class="dot"></div>
+        <div class="content">
+          <p><strong>${tx.title}</strong></p>
+          <p>${direction} ${tx.to}: ₹${tx.amount}</p>
+          <p class="timestamp">${date}</p>
+        </div>
+      </div>
+    `;
+  });
+}
+
+function settlePayment(phone, amount, method) {
+  const confirmMsg = method === "gpay"
+    ? `Confirm Google Pay payment of ₹${amount} to ${phone}?`
+    : `Mark ₹${amount} as paid manually to ${phone}?`;
+
+  if (!confirm(confirmMsg)) return;
+
+  fetch(window.location.pathname + "/settle_payment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone, amount, method })
+  })
+    .then(res => res.json())
+    .then(data => {
+      alert(data.message || "Payment settled.");
+      loadBalanceData();
+    })
+    .catch(err => {
+      console.error("Settlement error:", err);
+      alert("Error settling payment.");
+    });
 }

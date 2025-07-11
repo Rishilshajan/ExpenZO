@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from collections import defaultdict
 from bson.objectid import ObjectId
 
+
 load_dotenv()
 
 app = Flask(__name__, static_folder ="static")
@@ -380,7 +381,78 @@ def add_member(group_id):
     updated_group = groups_col.find_one({"_id": ObjectId(group_id)})
     return jsonify({"message": "Member added successfully", "members": updated_group["members"]})
 
-    
+
+@app.route("/group/<group_id>/my_balances")
+def my_balances(group_id):
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    current_user = session["user"]
+    current_user_phone = current_user["phone"]
+
+    expenses = list(group_expenses_col.find({"group_id": ObjectId(group_id)}).sort("created_at", -1))
+
+    balances = defaultdict(float)
+    transactions = []
+
+    for exp in expenses:
+        paid_by = exp["paid_by"]
+        date = exp.get("created_at", datetime.utcnow())
+
+        for split in exp["splits"]:
+            member = split["phone"]
+            amt = split["amount"]
+
+            if paid_by == current_user_phone and member != current_user_phone:
+                balances[member] += amt
+                transactions.append({
+                    "to": member,
+                    "amount": amt,
+                    "direction": "receive",
+                    "title": exp["title"],
+                    "date": date
+                })
+
+            elif member == current_user_phone and paid_by != current_user_phone:
+                balances[paid_by] -= amt
+                transactions.append({
+                    "to": paid_by,
+                    "amount": amt,
+                    "direction": "pay",
+                    "title": exp["title"],
+                    "date": date
+                })
+
+    response = {
+        "to_pay": [],
+        "to_get": [],
+        "transactions": sorted(transactions, key=lambda x: x["date"], reverse=True)
+    }
+
+    # Get member names for better labels
+    group = groups_col.find_one({"_id": ObjectId(group_id)})
+    if not group:
+        return jsonify({"error": "Group not found"}), 404
+    member_lookup = {m["phone"]: m["name"] for m in group["members"]}
+
+    for phone, net in balances.items():
+        name = member_lookup.get(phone, phone)
+
+        if net < 0:
+            response["to_pay"].append({
+                "phone": phone,
+                "name": name,
+                "amount": round(abs(net), 2)
+            })
+        elif net > 0:
+            response["to_get"].append({
+                "phone": phone,
+                "name": name,
+                "amount": round(net, 2)
+            })
+
+    return jsonify(response)
+
     
 if __name__ == "__main__":
     app.run(debug=True)
