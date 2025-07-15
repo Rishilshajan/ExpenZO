@@ -119,7 +119,7 @@
     <ul id="member-list">
       {% for member in group.members %}
         <li class="member-item">
-          <span>{{ member.name }} ({{ member.phone }})</span>
+          <span>{{ member.name }}</span>
 
           {% if current_user_phone == group.creator_phone %}
           <!-- Admin-only controls -->
@@ -162,19 +162,19 @@
 
   <div class="balance-columns">
     <div class="balance-card card-negative">
-      <h4>💸 You Owe</h4>
+      <h4>You Owe</h4>
       <div id="to-pay-list" class="balance-list"></div>
     </div>
 
     <div class="balance-card card-positive">
-      <h4>🤑 You Will Get</h4>
+      <h4>You Will Get</h4>
       <div id="to-get-list" class="balance-list"></div>
     </div>
   </div>
 
   <hr class="divider">
 
-  <h3 class="section-title">🕓 Transaction Timeline</h3>
+  <h3 class="section-title">Transaction Timeline</h3>
   <div id="balance-timeline" class="timeline"></div>
 </div>
 

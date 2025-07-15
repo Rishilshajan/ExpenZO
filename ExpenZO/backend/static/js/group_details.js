@@ -109,28 +109,29 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-     fetch(window.location.pathname + "/add_expense", {
-  method: "POST",
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ title, amount, paid_by: paidBy, splits })
-})
-  .then(res => {
-    if (!res.ok) {
-      return res.text().then(text => {
-        throw new Error(`Server error: ${text}`);
-      });
-    }
-    return res.json();
-  })
-  .then(data => {
-    alert(data.message);
-    // ... update UI
-  })
-  .catch(err => {
-    alert("Error adding expense");
-    console.error("Fetch error:", err.message);
-  });
-
+      // Send to backend
+      fetch(window.location.pathname + "/add_expense", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, amount, paid_by: paidBy, splits })
+      })
+        .then(res => res.json())
+        .then(data => {
+          alert(data.message);
+          document.getElementById("total-balance").textContent = `₹ ${data.total_balance.toFixed(2)}`;
+          document.getElementById("amount-to-pay").textContent = `₹ ${data.amount_to_pay.toFixed(2)}`;
+          document.getElementById("amount-to-get").textContent = `₹ ${data.amount_to_receive.toFixed(2)}`;
+          const totalEl = document.getElementById("total-balance");
+          totalEl.className = `amount ${data.total_balance >= 0 ? "amount-positive" : "amount-negative"}`;
+          modal.style.display = "none";
+          expenseForm.reset();
+          customSplitSection.style.display = "none";
+          customSplitsDiv.innerHTML = '';
+        })
+        .catch(err => {
+          alert("Error adding expense");
+          console.error(err);
+        });
     });
   }
 
@@ -232,14 +233,63 @@ if (memberForm) {
   });
 }
 
+// 🧠 BALANCE LOADER FUNCTION
 function loadBalanceData() {
-  fetch(window.location.pathname + "/my_balances")
-    .then(res => res.json())
+  const groupId = window.location.pathname.split("/")[2];
+
+  fetch(`/group/${groupId}/my_balances`)
+    .then(response => response.json())
     .then(data => {
-      renderBalances(data);
-    })
-    .catch(err => {
-      console.error("Error fetching balance data:", err);
+      document.getElementById("total-balance").innerText = `₹${data.total_balance}`;
+      document.getElementById("amount-to-pay").innerText = `₹${data.amount_to_pay}`;
+      document.getElementById("amount-to-get").innerText = `₹${data.amount_to_get}`;
+
+      const toGetDiv = document.getElementById("to-get-list");
+      const toPayDiv = document.getElementById("to-pay-list");
+      const timelineDiv = document.getElementById("balance-timeline");
+
+      toGetDiv.innerHTML = "";
+      toPayDiv.innerHTML = "";
+      timelineDiv.innerHTML = "";
+
+      data.to_get.forEach(item => {
+        const entry = document.createElement("div");
+        entry.className = "balance-entry";
+        entry.innerText = `${item.name} owes you ₹${item.amount}`;
+        toGetDiv.appendChild(entry);
+      });
+
+      data.to_pay.forEach(item => {
+        const entry = document.createElement("div");
+        entry.className = "balance-entry";
+        entry.innerHTML = `
+          <span>You owe ₹${item.amount} to ${item.name}</span>
+          <button onclick="settlePayment('${item.phone}', ${item.amount}, 'gpay')">GPay</button>
+          <button onclick="settlePayment('${item.phone}', ${item.amount}, 'manual')">Mark as Paid</button>
+        `;
+        toPayDiv.appendChild(entry);
+      });
+
+      data.transactions.forEach(t => {
+        const box = document.createElement("div");
+        box.className = "timeline-entry";
+        const date = new Date(t.date).toLocaleString();
+        const action = t.direction === "receive" ? "Received from" : "Paid to";
+
+        box.innerHTML = `
+          <div class="dot"></div>
+          <div class="content">
+            <p><strong>${t.title}</strong></p>
+            <p>${action} ${t.to_name}: ₹${t.amount}</p>
+            <p class="timestamp">${date}</p>
+          </div>
+        `;
+        timelineDiv.appendChild(box);
+      });
+
+      // Update class styling
+      const totalEl = document.getElementById("total-balance");
+      totalEl.className = `amount ${data.total_balance >= 0 ? "amount-positive" : "amount-negative"}`;
     });
 }
 
@@ -287,6 +337,8 @@ function renderBalances(data) {
   });
 }
 
+
+// 📤 Settlement trigger
 function settlePayment(phone, amount, method) {
   const confirmMsg = method === "gpay"
     ? `Confirm Google Pay payment of ₹${amount} to ${phone}?`
@@ -309,3 +361,4 @@ function settlePayment(phone, amount, method) {
       alert("Error settling payment.");
     });
 }
+

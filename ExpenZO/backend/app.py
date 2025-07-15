@@ -199,18 +199,33 @@ def group_create():
 
 def calculate_user_balance(group_id, user_phone):
     expenses = list(group_expenses_col.find({"group_id": ObjectId(group_id)}))
-    total_to_get, total_to_pay = 0.0, 0.0
+
+    balance_map = defaultdict(float)
 
     for exp in expenses:
-        for split in exp.get("splits", []):
-            if split.get("phone") == user_phone:
-                amt = float(split.get("amount", 0))
-                if split.get("role") == "owes":
-                    total_to_pay += amt
-                elif split.get("role") == "paid":
-                    total_to_get += amt
+        paid_by = exp.get("paid_by")
+        splits = exp.get("splits", [])
 
-    return round(total_to_get - total_to_pay, 2), round(total_to_pay, 2), round(total_to_get, 2)
+        for split in splits:
+            member_phone = split.get("phone")
+            amount = float(split.get("amount", 0))
+            role = split.get("role")
+
+            if member_phone == user_phone and role == "owes":
+                # You owe someone (who paid)
+                balance_map[paid_by] -= amount
+
+            elif member_phone != user_phone and paid_by == user_phone and role == "owes":
+                # You paid for someone else
+                balance_map[member_phone] += amount
+
+    # Now summarize net balances
+    total_to_get = sum([amt for amt in balance_map.values() if amt > 0])
+    total_to_pay = sum([-amt for amt in balance_map.values() if amt < 0])
+    total_balance = total_to_get - total_to_pay
+
+    return round(total_balance, 2), round(total_to_pay, 2), round(total_to_get, 2)
+
 
 @app.route("/group/<group_id>")
 def group_detail(group_id):
@@ -254,6 +269,7 @@ def group_detail(group_id):
                            total_balance=total_balance,
                            amount_to_pay=total_to_pay,
                            amount_to_receive=total_to_get)
+
 
 @app.route("/group/<group_id>/add_expense", methods=["POST"])
 def add_group_expense(group_id):
@@ -381,7 +397,6 @@ def add_member(group_id):
     updated_group = groups_col.find_one({"_id": ObjectId(group_id)})
     return jsonify({"message": "Member added successfully", "members": updated_group["members"]})
 
-
 @app.route("/group/<group_id>/my_balances")
 def my_balances(group_id):
     if "user" not in session:
@@ -392,67 +407,84 @@ def my_balances(group_id):
 
     expenses = list(group_expenses_col.find({"group_id": ObjectId(group_id)}).sort("created_at", -1))
 
-    balances = defaultdict(float)
+    to_get = []
+    to_pay = []
     transactions = []
+    balance_map = defaultdict(float)
 
-    for exp in expenses:
-        paid_by = exp["paid_by"]
-        date = exp.get("created_at", datetime.utcnow())
-
-        for split in exp["splits"]:
-            member = split["phone"]
-            amt = split["amount"]
-
-            if paid_by == current_user_phone and member != current_user_phone:
-                balances[member] += amt
-                transactions.append({
-                    "to": member,
-                    "amount": amt,
-                    "direction": "receive",
-                    "title": exp["title"],
-                    "date": date
-                })
-
-            elif member == current_user_phone and paid_by != current_user_phone:
-                balances[paid_by] -= amt
-                transactions.append({
-                    "to": paid_by,
-                    "amount": amt,
-                    "direction": "pay",
-                    "title": exp["title"],
-                    "date": date
-                })
-
-    response = {
-        "to_pay": [],
-        "to_get": [],
-        "transactions": sorted(transactions, key=lambda x: x["date"], reverse=True)
-    }
-
-    # Get member names for better labels
     group = groups_col.find_one({"_id": ObjectId(group_id)})
     if not group:
         return jsonify({"error": "Group not found"}), 404
+
     member_lookup = {m["phone"]: m["name"] for m in group["members"]}
 
-    for phone, net in balances.items():
+    for exp in expenses:
+        title = exp.get("title", "")
+        paid_by = exp.get("paid_by")
+        created_at = exp.get("created_at", datetime.utcnow())
+
+        user_involved = any(split["phone"] == current_user_phone for split in exp.get("splits", [])) or current_user_phone == paid_by
+        if not user_involved:
+            continue
+
+        for split in exp.get("splits", []):
+            member_phone = split.get("phone")
+            amount = float(split.get("amount", 0))
+            role = split.get("role")
+
+            if member_phone == current_user_phone and role == "owes":
+                # You owe someone
+                balance_map[paid_by] -= amount
+                transactions.append({
+                    "to": paid_by,
+                    "to_name": member_lookup.get(paid_by, paid_by),
+                    "amount": amount,
+                    "title": title,
+                    "date": created_at,
+                    "direction": "pay"
+                })
+
+            elif member_phone != current_user_phone and paid_by == current_user_phone and role == "owes":
+                # You paid for someone else
+                balance_map[member_phone] += amount
+                transactions.append({
+                    "to": member_phone,
+                    "to_name": member_lookup.get(member_phone, member_phone),
+                    "amount": amount,
+                    "title": title,
+                    "date": created_at,
+                    "direction": "receive"
+                })
+
+    # Convert to proper lists
+    for phone, amount in balance_map.items():
         name = member_lookup.get(phone, phone)
-
-        if net < 0:
-            response["to_pay"].append({
+        if amount > 0:
+            to_get.append({
                 "phone": phone,
                 "name": name,
-                "amount": round(abs(net), 2)
+                "amount": round(amount, 2)
             })
-        elif net > 0:
-            response["to_get"].append({
+        elif amount < 0:
+            to_pay.append({
                 "phone": phone,
                 "name": name,
-                "amount": round(net, 2)
+                "amount": round(abs(amount), 2)
             })
 
-    return jsonify(response)
+    total_to_get = round(sum([entry["amount"] for entry in to_get]), 2)
+    total_to_pay = round(sum([entry["amount"] for entry in to_pay]), 2)
+    total_balance = round(total_to_get - total_to_pay, 2)
 
-    
+    return jsonify({
+        "to_get": to_get,
+        "to_pay": to_pay,
+        "total_balance": total_balance,
+        "amount_to_get": total_to_get,
+        "amount_to_pay": total_to_pay,
+        "transactions": sorted(transactions, key=lambda x: x["date"], reverse=True)
+    })
+
+
 if __name__ == "__main__":
     app.run(debug=True)
