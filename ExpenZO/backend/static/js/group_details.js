@@ -109,7 +109,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      // Send to backend
       fetch(window.location.pathname + "/add_expense", {
         method: "POST",
         headers: { 'Content-Type': 'application/json' },
@@ -127,6 +126,8 @@ document.addEventListener("DOMContentLoaded", () => {
           expenseForm.reset();
           customSplitSection.style.display = "none";
           customSplitsDiv.innerHTML = '';
+          loadBalanceData();
+          loadExpenseHistory();
         })
         .catch(err => {
           alert("Error adding expense");
@@ -144,10 +145,26 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("tab-" + tab.dataset.tab).classList.add("active");
     });
   });
+
+  // Initialize
+  loadBalanceData();
+  loadExpenseHistory();
+  loadAnalyticsData();
+
+  const barFilter = document.getElementById("bar-filter");
+  if (barFilter) {
+    barFilter.addEventListener("change", () => {
+      if (!analyticsData) return;
+      const val = barFilter.value;
+      const dataset = val === "weekly" ? analyticsData.bar_weekly :
+                      val === "monthly" ? analyticsData.bar_monthly :
+                      analyticsData.bar_daily;
+      renderBarChart(dataset);
+    });
+  }
 });
 
 // MEMBER FUNCTIONS
-
 function deleteMember(phone) {
   if (confirm("Are you sure you want to delete this member?")) {
     fetch(window.location.pathname + "/delete_member", {
@@ -233,7 +250,7 @@ if (memberForm) {
   });
 }
 
-// 🧠 BALANCE LOADER FUNCTION
+// BALANCE FUNCTIONS
 function loadBalanceData() {
   const groupId = window.location.pathname.split("/")[2];
 
@@ -287,58 +304,156 @@ function loadBalanceData() {
         timelineDiv.appendChild(box);
       });
 
-      // Update class styling
       const totalEl = document.getElementById("total-balance");
       totalEl.className = `amount ${data.total_balance >= 0 ? "amount-positive" : "amount-negative"}`;
     });
 }
 
-function renderBalances(data) {
-  const toPayList = document.getElementById("to-pay-list");
-  const toGetList = document.getElementById("to-get-list");
-  const timeline = document.getElementById("balance-timeline");
+// EXPENSE HISTORY
+function loadExpenseHistory() {
+  const groupId = window.location.pathname.split("/")[2];
+  fetch(`/group/${groupId}/all_expenses`)
+    .then(res => res.json())
+    .then(data => {
+      renderExpenseHistory(data.expenses);
+    })
+    .catch(err => {
+      console.error("Error loading expense history:", err);
+    });
+}
 
-  toPayList.innerHTML = "";
-  toGetList.innerHTML = "";
-  timeline.innerHTML = "";
+function renderExpenseHistory(expenses) {
+  const container = document.getElementById("expense-history-list");
+  container.innerHTML = "";
 
-  data.to_pay.forEach(entry => {
-    toPayList.innerHTML += `
-      <div class="balance-entry">
-        <span>Pay ₹${entry.amount} to ${entry.name}</span>
-        <button onclick="settlePayment('${entry.phone}', ${entry.amount}, 'gpay')">GPay</button>
-        <button onclick="settlePayment('${entry.phone}', ${entry.amount}, 'manual')">Mark as Paid</button>
+  expenses.forEach((exp) => {
+    const dateStr = new Date(exp.created_at).toLocaleString();
+    const entry = document.createElement("div");
+    entry.className = "history-entry";
+
+    entry.innerHTML = `
+      <div class="history-title">${exp.title} - ₹${exp.amount}</div>
+      <div class="history-details">
+        <p><strong>Paid by:</strong> ${exp.paid_by}</p>
+        <ul>
+          ${exp.splits.map(s => `<li>${s.name} (${s.role}) - ₹${s.amount}</li>`).join("")}
+        </ul>
+        <span class="history-date">${dateStr}</span>
       </div>
     `;
+
+    entry.addEventListener("click", () => {
+      entry.classList.toggle("open");
+    });
+
+    container.appendChild(entry);
   });
+}
 
-  data.to_get.forEach(entry => {
-    toGetList.innerHTML += `
-      <div class="balance-entry">
-        <span>${entry.name} owes you ₹${entry.amount}</span>
-      </div>
-    `;
+let analyticsData = null;
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    // Deactivate all tabs
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+
+    // Activate clicked tab
+    tab.classList.add("active");
+    const tabName = tab.dataset.tab;
+    document.getElementById("tab-" + tabName).classList.add("active");
+
+    // Show chart only in analytics tab
+    const chartWrapper = document.getElementById("charts-container");
+    if (chartWrapper) {
+      chartWrapper.style.display = tabName === "analytics" ? "flex" : "none";
+    }
+
+    // Optionally trigger loadAnalyticsData only when entering the analytics tab
+    if (tabName === "analytics") {
+      loadAnalyticsData();
+    }
   });
+});
 
-  data.transactions.forEach(tx => {
-    const direction = tx.direction === "pay" ? "Paid to" : "Received from";
-    const date = new Date(tx.date).toLocaleString();
+function loadAnalyticsData() {
+  const groupId = window.location.pathname.split("/")[2];
+  fetch(`/group/${groupId}/analytics_data`)
+    .then(res => res.json())
+    .then(data => {
+      analyticsData = data;
+      document.getElementById("total-expense").innerText = `₹${data.total}`;
+      renderBarChart(data.bar_daily);
+      renderPieChart(data.pie);
+    });
+}
 
-    timeline.innerHTML += `
-      <div class="timeline-entry">
-        <div class="dot"></div>
-        <div class="content">
-          <p><strong>${tx.title}</strong></p>
-          <p>${direction} ${tx.to}: ₹${tx.amount}</p>
-          <p class="timestamp">${date}</p>
-        </div>
-      </div>
-    `;
+let barChart, pieChart;
+
+function renderBarChart(data) {
+  const ctx = document.getElementById("bar-chart").getContext("2d");
+  if (barChart) barChart.destroy();
+
+  barChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: Object.keys(data),
+      datasets: [{
+        label: "Expenses",
+        data: Object.values(data),
+        backgroundColor: "#2196f3",
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: "Amount (₹)" }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: "index" }
+      }
+    }
+  });
+}
+
+function renderPieChart(data) {
+  const ctx = document.getElementById("pie-chart").getContext("2d");
+  if (pieChart) pieChart.destroy();
+
+  pieChart = new Chart(ctx, {
+    type: "pie",
+    data: {
+      labels: Object.keys(data),
+      datasets: [{
+        data: Object.values(data),
+        backgroundColor: [
+          "#4caf50", "#ff9800", "#03a9f4", "#e91e63",
+          "#9c27b0", "#ffc107", "#00bcd4", "#8bc34a"
+        ]
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.label}: ₹${ctx.raw}`
+          }
+        }
+      }
+    }
   });
 }
 
 
-// 📤 Settlement trigger
+
+// Settlement
 function settlePayment(phone, amount, method) {
   const confirmMsg = method === "gpay"
     ? `Confirm Google Pay payment of ₹${amount} to ${phone}?`
@@ -361,4 +476,3 @@ function settlePayment(phone, amount, method) {
       alert("Error settling payment.");
     });
 }
-

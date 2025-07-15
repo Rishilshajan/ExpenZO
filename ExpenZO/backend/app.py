@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 from collections import defaultdict
 from bson.objectid import ObjectId
+import calendar
 
 
 load_dotenv()
@@ -484,6 +485,85 @@ def my_balances(group_id):
         "amount_to_pay": total_to_pay,
         "transactions": sorted(transactions, key=lambda x: x["date"], reverse=True)
     })
+
+
+@app.route("/group/<group_id>/all_expenses")
+def all_expenses(group_id):
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    group = groups_col.find_one({"_id": ObjectId(group_id)})
+    if not group:
+        return jsonify({"error": "Group not found"}), 404
+
+    member_lookup = {m["phone"]: m["name"] for m in group["members"]}
+
+    expenses = list(group_expenses_col.find({"group_id": ObjectId(group_id)}).sort("created_at", -1))
+    results = []
+
+    for exp in expenses:
+        results.append({
+            "title": exp.get("title", ""),
+            "amount": float(exp.get("amount", 0)),
+            "created_at": exp.get("created_at").isoformat(),
+            "paid_by": member_lookup.get(exp.get("paid_by", ""), exp.get("paid_by", "")),
+            "splits": [
+                {
+                    "phone": s["phone"],
+                    "name": member_lookup.get(s["phone"], s["phone"]),
+                    "amount": float(s["amount"]),
+                    "role": s["role"]
+                }
+                for s in exp.get("splits", [])
+            ]
+        })
+
+    return jsonify({"expenses": results})
+
+
+@app.route("/group/<group_id>/analytics_data")
+def analytics_data(group_id):
+    expenses = list(group_expenses_col.find({"group_id": ObjectId(group_id)}))
+
+    total_expense = sum(float(e["amount"]) for e in expenses)
+
+    bar_data = defaultdict(float)
+    pie_data = defaultdict(float)
+
+    for exp in expenses:
+        date = exp.get("created_at", datetime.utcnow())
+        day = date.strftime("%Y-%m-%d")
+        week = f"Week {date.isocalendar()[1]}"
+        month = date.strftime("%B")
+
+        # Aggregate for all levels
+        bar_data[day] += float(exp["amount"])
+        pie_data[exp["title"]] += float(exp["amount"])  # or paid_by name
+
+    return jsonify({
+        "total": round(total_expense, 2),
+        "bar_daily": dict(bar_data),
+        "bar_weekly": group_by_week(bar_data),
+        "bar_monthly": group_by_month(bar_data),
+        "pie": dict(pie_data)
+    })
+
+def group_by_week(data):
+    weekly = defaultdict(float)
+    for dstr, val in data.items():
+        dt = datetime.strptime(dstr, "%Y-%m-%d")
+        key = f"Week {dt.isocalendar()[1]}"
+        weekly[key] += val
+    return weekly
+
+def group_by_month(data):
+    monthly = defaultdict(float)
+    for dstr, val in data.items():
+        dt = datetime.strptime(dstr, "%Y-%m-%d")
+        key = dt.strftime("%B")
+        monthly[key] += val
+    return monthly
+
 
 
 if __name__ == "__main__":

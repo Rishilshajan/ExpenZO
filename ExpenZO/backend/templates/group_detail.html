@@ -179,21 +179,38 @@
 </div>
 
 
+<div class="tab-content" id="tab-history">
+  <h3 class="section-title">🧾 Expense History</h3>
+  <div id="expense-history-list" class="history-list"></div>
+</div>
 
 
-  <div class="tab-content" id="tab-history">
-    <!-- Expense History Will Come Here -->
-  </div>
-  <div class="tab-content" id="tab-analytics">
-    <!-- Charts Will Come Here -->
+<div id="tab-analytics" class="tab-content">
+  <h3>Total Group Expenses</h3>
+  <div id="total-expense" class="amount amount-positive">₹0</div>
+
+  <label for="bar-filter">Bar Chart View:</label>
+  <select id="bar-filter">
+    <option value="daily">Daily</option>
+    <option value="weekly">Weekly</option>
+    <option value="monthly">Monthly</option>
+  </select>
+
+  <!-- CHART WRAPPER -->
+  <div class="chart-wrapper" id="charts-container">
+    <canvas id="bar-chart"></canvas>
+    <canvas id="pie-chart"></canvas>
   </div>
 </div>
+
+
 
 <script src="{{ url_for('static', filename='js/group_details.js') }}"></script>
 <script>
   window.onload = function () {
     loadBalanceData();
-  };
+    loadExpenseHistory();
+}
 </script>
 
 </body>
