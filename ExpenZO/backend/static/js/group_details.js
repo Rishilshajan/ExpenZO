@@ -453,18 +453,26 @@ function renderPieChart(data) {
 
 
 
-// Settlement
-function settlePayment(phone, amount, method) {
-  const confirmMsg = method === "gpay"
-    ? `Confirm Google Pay payment of ₹${amount} to ${phone}?`
-    : `Mark ₹${amount} as paid manually to ${phone}?`;
+function settlePayment(entryId, senderPhone, receiverPhone, amount, method, currentUserPhone, otherPartyName) {
+  // Check if current user is either sender or receiver
+  if (currentUserPhone !== senderPhone && currentUserPhone !== receiverPhone) {
+    alert("You're not authorized to settle this payment.");
+    return;
+  }
+
+  const methodText = method === "gpay" ? "Google Pay" : "manual";
+  const confirmMsg = `Confirm ${methodText} payment of ₹${amount} with ${otherPartyName}?`;
 
   if (!confirm(confirmMsg)) return;
 
   fetch(window.location.pathname + "/settle_payment", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone, amount, method })
+    body: JSON.stringify({
+      entry_id: entryId,
+      phone: currentUserPhone,
+      method: method
+    })
   })
     .then(res => res.json())
     .then(data => {

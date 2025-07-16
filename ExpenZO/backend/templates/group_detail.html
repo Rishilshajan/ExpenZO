@@ -158,7 +158,7 @@
 
 
 <div class="tab-content" id="tab-balance">
-  <h3 class="section-title">💰 Your Balance Summary</h3>
+  <h3 class="section-title">Your Balance Summary</h3>
 
   <div class="balance-columns">
     <div class="balance-card card-negative">
@@ -180,29 +180,37 @@
 
 
 <div class="tab-content" id="tab-history">
-  <h3 class="section-title">🧾 Expense History</h3>
+  <h3 class="section-title">Expense History</h3>
   <div id="expense-history-list" class="history-list"></div>
 </div>
 
+<div id="tab-analytics" class="tab-content analytics-overview">
+  <!-- Total Expense Card -->
+  <div class="total-expense-card">
+    <h3>Total Group Expenses</h3>
+    <div id="total-expense" class="analytics-value">₹0</div>
+  </div>
 
-<div id="tab-analytics" class="tab-content">
-  <h3>Total Group Expenses</h3>
-  <div id="total-expense" class="amount amount-positive">₹0</div>
+  <!-- Bar Chart Filter -->
+  <div class="chart-controls">
+    <label for="bar-filter">Bar Chart View:</label>
+    <select id="bar-filter">
+      <option value="daily">Daily</option>
+      <option value="weekly">Weekly</option>
+      <option value="monthly">Monthly</option>
+    </select>
+  </div>
 
-  <label for="bar-filter">Bar Chart View:</label>
-  <select id="bar-filter">
-    <option value="daily">Daily</option>
-    <option value="weekly">Weekly</option>
-    <option value="monthly">Monthly</option>
-  </select>
-
-  <!-- CHART WRAPPER -->
-  <div class="chart-wrapper" id="charts-container">
-    <canvas id="bar-chart"></canvas>
-    <canvas id="pie-chart"></canvas>
+  <!-- Chart Area -->
+  <div class="analytics-charts" id="charts-container">
+    <div class="chart-card">
+      <canvas id="bar-chart"></canvas>
+    </div>
+    <div class="chart-card">
+      <canvas id="pie-chart"></canvas>
+    </div>
   </div>
 </div>
-
 
 
 <script src="{{ url_for('static', filename='js/group_details.js') }}"></script>

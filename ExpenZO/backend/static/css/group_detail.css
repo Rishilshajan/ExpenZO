@@ -563,84 +563,93 @@
 }
 
 
-/* ------------------------------
-   Analytics Section Styling
------------------------------- */
+/* -------------------------------------
+   Scoped Mobile-First Analytics Section
+-------------------------------------- */
 
-/* Container for the entire analytics section */
-.analytics-overview {
+#tab-analytics .analytics-overview {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 20px;
-  max-width: 100%;
+  align-items: center;
+  gap: 20px;
+  padding: 1rem;
   box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
 }
 
-/* Title styling */
-.analytics-overview h3 {
+/* --- Total Expense Card --- */
+#tab-analytics .total-expense-card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 20px 24px;
+  width: 90%;
+  max-width: 420px;
+  text-align: center;
+  margin: 0 auto;
+}
+
+#tab-analytics .total-expense-card h3 {
+  font-size: 1.4rem;
   margin-bottom: 8px;
-  font-size: 1.5rem;
-  color: #333;
+  color: #444;
 }
 
-/* Total expense display */
-.analytics-value {
-  font-size: 1.8rem;
+#tab-analytics .total-expense-card .analytics-value {
+  font-size: 2rem;
   font-weight: bold;
   color: #009688;
-  text-align: left;
 }
 
-/* Bar chart filter row */
-.chart-controls {
+/* --- Filter dropdown --- */
+#tab-analytics .chart-controls {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 500;
   flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+   margin-top: 25px;
 }
 
-/* Chart container that holds both charts */
-.analytics-charts {
+/* --- Charts Wrapper --- */
+#tab-analytics .analytics-charts {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  margin-top: 20px;
+  width: 100%;
+  align-items: center;
 }
 
-/* Each chart in its own card box */
-.chart-card {
+/* --- Each chart box --- */
+#tab-analytics .chart-card {
   background: #ffffff;
   padding: 20px;
   border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  width: 100%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  width: 90%;
+  max-width: 500px;
   box-sizing: border-box;
 }
 
-/* Canvas inside each chart */
-.chart-card canvas {
+/* --- Chart Canvas --- */
+#tab-analytics .chart-card canvas {
   width: 100% !important;
   height: auto !important;
-  max-height: 300px;
+  max-height: 320px;
 }
 
-/* For wider screens, display charts side by side */
+/* --- Large screen layout (side by side) --- */
 @media (min-width: 1024px) {
-  .analytics-charts {
+  #tab-analytics .analytics-charts {
     flex-direction: row;
-    justify-content: center;
-    align-items: stretch;
+    justify-content: space-evenly;
+    align-items: flex-start;
   }
 
-  .chart-card {
+  #tab-analytics .chart-card {
     width: 45%;
+    max-width: unset;
   }
 }
-
-/* Hide charts by default, shown only in Analytics tab via JS */
-#charts-container {
-  display: none;
-}
-

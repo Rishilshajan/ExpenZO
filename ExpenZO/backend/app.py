@@ -565,6 +565,50 @@ def group_by_month(data):
     return monthly
 
 
+@app.route("/group/<group_id>/settle_payment", methods=["POST"])
+def settle_payment(group_id):
+    data = request.get_json()
+    entry_id = data.get("entry_id")
+    phone = data.get("phone")  # Who is trying to settle
+    method = data.get("method")
+
+    group = mongo.db.groups.find_one({"_id": ObjectId(group_id)})
+    if not group:
+        return jsonify({"error": "Group not found"}), 404
+
+    balances = group.get("balances", [])
+    updated = False
+
+    for entry in balances:
+        if str(entry.get("_id")) == entry_id:
+            sender = entry.get("from")
+            receiver = entry.get("to")
+
+            # Ensure only involved users can settle
+            if phone not in [sender, receiver]:
+                return jsonify({"error": "You are not allowed to settle this payment."}), 403
+
+            if entry.get("paid"):
+                return jsonify({"message": "Already settled."}), 200
+
+            entry["paid"] = True
+            entry["settled_by"] = phone
+            entry["settled_at"] = datetime.now().isoformat()
+            entry["method"] = method
+            updated = True
+            break
+
+    if not updated:
+        return jsonify({"error": "Transaction not found"}), 404
+
+    mongo.db.groups.update_one(
+        {"_id": ObjectId(group_id)},
+        {"$set": {"balances": balances}}
+    )
+
+    return jsonify({"message": "Payment marked as settled."})
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)
