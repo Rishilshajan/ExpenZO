@@ -451,17 +451,10 @@ function renderPieChart(data) {
   });
 }
 
-
-
-function settlePayment(entryId, senderPhone, receiverPhone, amount, method, currentUserPhone, otherPartyName) {
-  // Check if current user is either sender or receiver
-  if (currentUserPhone !== senderPhone && currentUserPhone !== receiverPhone) {
-    alert("You're not authorized to settle this payment.");
-    return;
-  }
-
-  const methodText = method === "gpay" ? "Google Pay" : "manual";
-  const confirmMsg = `Confirm ${methodText} payment of ₹${amount} with ${otherPartyName}?`;
+function settlePayment(entryId, senderPhone, receiverPhone, amount, method, currentUserPhone, otherUserName) {
+  const confirmMsg = method === "gpay"
+    ? `Confirm Google Pay payment of ₹${amount} to ${otherUserName}?`
+    : `Mark ₹${amount} as paid manually to ${otherUserName}?`;
 
   if (!confirm(confirmMsg)) return;
 
@@ -470,17 +463,24 @@ function settlePayment(entryId, senderPhone, receiverPhone, amount, method, curr
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       entry_id: entryId,
-      phone: currentUserPhone,
+      phone: String(currentUserPhone).trim(),
+      senderPhone: String(senderPhone).trim(),
+      receiverPhone: String(receiverPhone).trim(),
       method: method
     })
   })
     .then(res => res.json())
     .then(data => {
-      alert(data.message || "Payment settled.");
-      loadBalanceData();
+      if (data.error) {
+        alert(data.error);
+      } else {
+        alert(data.message || "Payment settled.");
+        loadBalanceData();
+      }
     })
     .catch(err => {
       console.error("Settlement error:", err);
       alert("Error settling payment.");
     });
 }
+

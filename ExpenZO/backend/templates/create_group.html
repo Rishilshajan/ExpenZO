@@ -74,20 +74,28 @@
       <input type="text" name="group_name" placeholder="Group Name" required value="{{ group_name or '' }}">
 
       <div id="members-wrapper">
-        {% if members %}
-          {% for m in members %}
-          <div class="member-pair">
-            <input type="text" name="member_name" placeholder="Member Name" value="{{ m.name }}" required>
-            <input type="tel" name="member_phone" placeholder="Phone Number" value="{{ m.phone }}" required>
-          </div>
-          {% endfor %}
-        {% else %}
-        <div class="member-pair">
-          <input type="text" name="member_name" placeholder="Member Name" required>
-          <input type="tel" name="member_phone" placeholder="Phone Number" required>
-        </div>
-        {% endif %}
+  <!-- Prepopulate current user -->
+  <div class="member-pair">
+    <input type="text" name="member_name" value="{{ current_user.name }}" readonly>
+    <input type="tel" name="member_phone" value="{{ current_user.phone }}" readonly>
+  </div>
+
+  {% if members %}
+    {% for m in members %}
+      {% if m.phone != current_user.phone %}
+      <div class="member-pair">
+        <input type="text" name="member_name" placeholder="Member Name" value="{{ m.name }}" required>
+        <input type="tel" name="member_phone" placeholder="Phone Number" value="{{ m.phone }}" required>
       </div>
+      {% endif %}
+    {% endfor %}
+  {% else %}
+    <div class="member-pair">
+      <input type="text" name="member_name" placeholder="Member Name" required>
+      <input type="tel" name="member_phone" placeholder="Phone Number" required>
+    </div>
+  {% endif %}
+</div>
 
       <button type="button" onclick="addMember()">➕ Add Member</button>
       <button type="submit">✅ Create Group</button>

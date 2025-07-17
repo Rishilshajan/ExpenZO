@@ -18,6 +18,7 @@ db = get_db()
 meta_col = db['meta']
 groups_col = db['groups']
 group_expenses_col = db["group_expenses"]
+users_col = db['users']
 
 
 # 1. Preloader Route - Page Loader
@@ -170,6 +171,15 @@ def group_create():
     if "user" not in session:
         return redirect(url_for("auth"))
 
+    # Get current user from DB using phone/email stored in session
+    user_session = session["user"]
+    user_email = user_session.get("email")
+    user_phone = user_session.get("phone")
+    current_user = users_col.find_one({"email": user_email}) or users_col.find_one({"phone": user_phone})
+
+    if not current_user:
+        return "User not found", 404
+
     if request.method == "POST":
         data = request.form
         group_name = data.get("group_name")
@@ -182,13 +192,18 @@ def group_create():
             if name and phone
         ]
 
+        # Prepend current user to members
+        current_member = {"name": current_user["name"], "phone": current_user["phone"]}
+        # Avoid duplicate entry of current user
+        members = [current_member] + [m for m in members if m["phone"] != current_user["phone"]]
+
         if not group_name or not members:
             return render_template("create_group.html", error="Fill all fields", group_name=group_name, members=members)
 
         db.groups.insert_one({
             "group_name": group_name,
-            "creator_email": session["user"]["email"],
-            "creator_phone":session["user"]["phone"],
+            "creator_email": current_user["email"],
+            "creator_phone": current_user["phone"],
             "members": members,
             "group_expenses": 0,
             "created_at": datetime.now()
@@ -196,7 +211,9 @@ def group_create():
 
         return redirect(url_for("home"))
 
-    return render_template("create_group.html")
+    # Pass current user info to prepopulate
+    return render_template("create_group.html", current_user=current_user)
+
 
 def calculate_user_balance(group_id, user_phone):
     expenses = list(group_expenses_col.find({"group_id": ObjectId(group_id)}))
@@ -568,11 +585,12 @@ def group_by_month(data):
 @app.route("/group/<group_id>/settle_payment", methods=["POST"])
 def settle_payment(group_id):
     data = request.get_json()
-    entry_id = data.get("entry_id")
-    phone = data.get("phone")  # Who is trying to settle
+
+    entry_id = data.get("entry_id")         # The _id of the balance entry
+    phone = str(data.get("phone", "")).strip()  # Who is initiating the payment
     method = data.get("method")
 
-    group = mongo.db.groups.find_one({"_id": ObjectId(group_id)})
+    group = groups_collection.find_one({"_id": ObjectId(group_id)})
     if not group:
         return jsonify({"error": "Group not found"}), 404
 
@@ -581,16 +599,21 @@ def settle_payment(group_id):
 
     for entry in balances:
         if str(entry.get("_id")) == entry_id:
-            sender = entry.get("from")
-            receiver = entry.get("to")
+            sender_phone = str(entry.get("from", "")).strip()
+            receiver_phone = str(entry.get("to", "")).strip()
 
-            # Ensure only involved users can settle
-            if phone not in [sender, receiver]:
-                return jsonify({"error": "You are not allowed to settle this payment."}), 403
+            # ✅ Validate only sender or receiver can settle
+            if phone not in [sender_phone, receiver_phone]:
+                return jsonify({
+                    "error": "Unauthorized: Only sender or receiver can settle this payment."
+                }), 403
 
             if entry.get("paid"):
-                return jsonify({"message": "Already settled."}), 200
+                return jsonify({
+                    "message": "This transaction is already settled."
+                }), 200
 
+            # ✅ Mark transaction as paid
             entry["paid"] = True
             entry["settled_by"] = phone
             entry["settled_at"] = datetime.now().isoformat()
@@ -598,16 +621,14 @@ def settle_payment(group_id):
             updated = True
             break
 
-    if not updated:
-        return jsonify({"error": "Transaction not found"}), 404
-
-    mongo.db.groups.update_one(
-        {"_id": ObjectId(group_id)},
-        {"$set": {"balances": balances}}
-    )
-
-    return jsonify({"message": "Payment marked as settled."})
-
+    if updated:
+        groups_collection.update_one(
+            {"_id": ObjectId(group_id)},
+            {"$set": {"balances": balances}}
+        )
+        return jsonify({"message": "Payment marked as settled."}), 200
+    else:
+        return jsonify({"error": "Balance entry not found."}), 404
 
 
 if __name__ == "__main__":
