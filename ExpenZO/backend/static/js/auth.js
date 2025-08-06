@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // 🔁 Toggle between Login and Signup forms
+    //Toggle between Login and Signup forms
     document.querySelectorAll(".tab-btn").forEach(button => {
         button.addEventListener("click", () => {
             document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
@@ -11,12 +11,14 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // ✅ Firebase Setup
+
+    //Firebase Setup
     const firebaseConfig = window.firebaseConfig;
     firebase.initializeApp(firebaseConfig);
     const provider = new firebase.auth.GoogleAuthProvider();
 
-    // 🔐 Google Auth Handler
+
+    //Google Auth Handler
     document.querySelectorAll(".google-btn").forEach(button => {
         button.addEventListener("click", (e) => {
             e.preventDefault();
@@ -58,7 +60,8 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // 📨 Email/Password Login
+
+    //Email/Password Login
     document.querySelector("#login-form").addEventListener("submit", (e) => {
         e.preventDefault();
         const email = e.target.email.value;
@@ -100,7 +103,8 @@ document.addEventListener("DOMContentLoaded", () => {
             });
     });
 
-    // 📨 Email/Password Sign Up
+
+    //Email/Password Sign Up
     document.querySelector("#signup-form").addEventListener("submit", (e) => {
         e.preventDefault();
         const name = e.target.name.value;

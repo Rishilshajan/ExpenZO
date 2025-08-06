@@ -39,7 +39,7 @@ def auth():
     }
     return render_template("auth.html", firebase_config=firebase_config)
 
-@app.route('/collect_phone', methods=['GET', 'POST'])
+@app.route('/collect_phone', methods=['GET','POST'])
 def collect_phone():
     if 'user' not in session:
         return redirect(url_for('auth'))
@@ -51,7 +51,7 @@ def collect_phone():
         phone = request.form.get('phone', '').strip()
         if phone:
             users_col.update_one({'email': user['email']}, {'$set': {'phone': phone}})
-            session['user']['phone'] = phone  # update session too
+            session['user']['phone'] = phone 
             return redirect(url_for('home'))
         else:
             return render_template("collect_phone.html", error="Phone number is required")
@@ -65,9 +65,13 @@ def set_session():
     if not data or 'email' not in data:
         return jsonify({"error": "Invalid data"}), 400
 
-    session['user'] = data
+    session['user'] = {
+    "email": existing_user["email"],
+    "name": existing_user.get("name", ""),
+    "phone": existing_user.get("phone", ""),
+    "photo": existing_user.get("photo", "")
+    }
     users_col = db["users"]
-
     existing_user = users_col.find_one({"email": data['email']})
 
     # NEW USER (signup)
@@ -92,9 +96,7 @@ def set_session():
             "photo": existing_user.get("photo", "")
         }
         return jsonify({"redirect": "/home"})
-
-
-
+    
     return jsonify({"message": "Session stored"}), 200
 
 # 4. Home Route - Expense Dashboard
@@ -166,469 +168,469 @@ def home():
                            groups=user_groups)
 
 
-@app.route("/group/create", methods=["GET", "POST"])
-def group_create():
-    if "user" not in session:
-        return redirect(url_for("auth"))
+# @app.route("/group/create", methods=["GET", "POST"])
+# def group_create():
+#     if "user" not in session:
+#         return redirect(url_for("auth"))
 
-    # Get current user from DB using phone/email stored in session
-    user_session = session["user"]
-    user_email = user_session.get("email")
-    user_phone = user_session.get("phone")
-    current_user = users_col.find_one({"email": user_email}) or users_col.find_one({"phone": user_phone})
-
-    if not current_user:
-        return "User not found", 404
-
-    if request.method == "POST":
-        data = request.form
-        group_name = data.get("group_name")
-        member_names = request.form.getlist("member_name")
-        member_phones = request.form.getlist("member_phone")
-
-        members = [
-            {"name": name, "phone": phone}
-            for name, phone in zip(member_names, member_phones)
-            if name and phone
-        ]
-
-        # Prepend current user to members
-        current_member = {"name": current_user["name"], "phone": current_user["phone"]}
-        # Avoid duplicate entry of current user
-        members = [current_member] + [m for m in members if m["phone"] != current_user["phone"]]
-
-        if not group_name or not members:
-            return render_template("create_group.html", error="Fill all fields", group_name=group_name, members=members)
-
-        db.groups.insert_one({
-            "group_name": group_name,
-            "creator_email": current_user["email"],
-            "creator_phone": current_user["phone"],
-            "members": members,
-            "group_expenses": 0,
-            "created_at": datetime.now()
-        })
-
-        return redirect(url_for("home"))
-
-    # Pass current user info to prepopulate
-    return render_template("create_group.html", current_user=current_user)
-
-
-def calculate_user_balance(group_id, user_phone):
-    expenses = list(group_expenses_col.find({"group_id": ObjectId(group_id)}))
-
-    balance_map = defaultdict(float)
-
-    for exp in expenses:
-        paid_by = exp.get("paid_by")
-        splits = exp.get("splits", [])
-
-        for split in splits:
-            member_phone = split.get("phone")
-            amount = float(split.get("amount", 0))
-            role = split.get("role")
-
-            if member_phone == user_phone and role == "owes":
-                # You owe someone (who paid)
-                balance_map[paid_by] -= amount
-
-            elif member_phone != user_phone and paid_by == user_phone and role == "owes":
-                # You paid for someone else
-                balance_map[member_phone] += amount
-
-    # Now summarize net balances
-    total_to_get = sum([amt for amt in balance_map.values() if amt > 0])
-    total_to_pay = sum([-amt for amt in balance_map.values() if amt < 0])
-    total_balance = total_to_get - total_to_pay
-
-    return round(total_balance, 2), round(total_to_pay, 2), round(total_to_get, 2)
-
-
-@app.route("/group/<group_id>")
-def group_detail(group_id):
-    if "user" not in session:
-        return redirect(url_for("auth"))
-
-    user_data = session["user"]
-    username = user_data.get("email")
-    user_phone = user_data.get("phone")
-
-    try:
-        group_obj_id = ObjectId(group_id)
-    except:
-        return "Invalid Group ID", 400
-
-    group = groups_col.find_one({"_id": group_obj_id})
-    if not group:
-        return "Group not found", 404
-
-    is_member = any(m["phone"] == user_phone for m in group["members"])
-    if group["creator_email"] != username and not is_member:
-        return "Unauthorized", 403
-
-    expenses = list(group_expenses_col.find({"group_id": group_obj_id}).sort("created_at", -1))
-    total_balance, total_to_pay, total_to_get = calculate_user_balance(group_id, user_phone)
-
-    category_data = defaultdict(float)
-    for exp in expenses:
-        category_data[exp.get("category", "Other")] += float(exp.get("amount", 0))
-
-    chart_labels = list(category_data.keys())
-    chart_values = list(category_data.values())
-
-    return render_template("group_detail.html",
-                           user=user_data,
-                           group=group,
-                           expenses=expenses,
-                           current_user_phone=user_phone,
-                           chart_labels=chart_labels,
-                           chart_data=chart_values,
-                           total_balance=total_balance,
-                           amount_to_pay=total_to_pay,
-                           amount_to_receive=total_to_get)
-
-
-@app.route("/group/<group_id>/add_expense", methods=["POST"])
-def add_group_expense(group_id):
-    if "user" not in session:
-        return jsonify({"error": "Unauthorized"}), 403
-
-    data = request.get_json()
-    title = data.get("title")
-    amount = float(data.get("amount", 0))
-    paid_by = data.get("paid_by")
-    splits = data.get("splits", [])
-
-    new_expense = {
-        "group_id": ObjectId(group_id),
-        "title": title,
-        "amount": amount,
-        "paid_by": paid_by,
-        "splits": splits,
-        "created_at": datetime.utcnow(),
-        "category": "General"
-    }
-
-    group_expenses_col.insert_one(new_expense)
-
-    # Recalculate updated balances
-    user_phone = session["user"]["phone"]
-    total_balance, amount_to_pay, amount_to_get = calculate_user_balance(group_id, user_phone)
-
-    return jsonify({
-        "message": "Expense added successfully!",
-        "total_balance": total_balance,
-        "amount_to_pay": amount_to_pay,
-        "amount_to_receive": amount_to_get
-    })
-
-@app.route('/group/<group_id>/delete_member', methods=['POST'])
-def delete_member(group_id):
-    if 'user' not in session:
-        return jsonify({"message": "Unauthorized"}), 401
-
-    data = request.get_json()
-    phone = data.get('phone')
-    current_user_phone = session["user"].get("phone")
-
-    group = groups_col.find_one({"_id": ObjectId(group_id)})
-    if not group:
-        return jsonify({"message": "Group not found"}), 404
-
-    if group['creator_phone'] != current_user_phone:
-        return jsonify({"message": "Only admin can delete members"}), 403
-
-    updated_members = [m for m in group["members"] if m["phone"] != phone]
-    groups_col.update_one(
-        {"_id": ObjectId(group_id)},
-        {"$set": {"members": updated_members}}
-    )
-
-    return jsonify({"message": "Member deleted successfully"})
-
-@app.route('/group/<group_id>/edit_member', methods=['POST'])
-def edit_member(group_id):
-    if 'user' not in session:
-        return jsonify({"message": "Unauthorized"}), 401
-
-    data = request.get_json()
-    original_phone = data.get("original_phone", "").strip()
-    new_name = data.get("name", "").strip()
-
-    current_user_phone = session["user"].get("phone")
-    group = groups_col.find_one({"_id": ObjectId(group_id)})
-
-    if not group:
-        return jsonify({"message": "Group not found"}), 404
-    if group["creator_phone"] != current_user_phone:
-        return jsonify({"message": "Only admin can edit members"}), 403
-
-    # ✅ Modify the matching member
-    updated_members = []
-    found = False
-    for m in group["members"]:
-        if m["phone"] == original_phone:
-            updated_members.append({"phone": m["phone"], "name": new_name})
-            found = True
-        else:
-            updated_members.append(m)
-
-    if not found:
-        return jsonify({"message": "Member not found"}), 404
-
-    groups_col.update_one(
-        {"_id": ObjectId(group_id)},
-        {"$set": {"members": updated_members}}
-    )
-
-    updated_group = groups_col.find_one({"_id": ObjectId(group_id)})
-    return jsonify({"message": "Member updated successfully", "members": updated_group["members"]})
-
-
-@app.route('/group/<group_id>/add_member', methods=['POST'])
-def add_member(group_id):
-    if 'user' not in session:
-        return jsonify({"message": "Unauthorized"}), 401
-
-    data = request.get_json()
-    name = data.get("name", "").strip()
-    phone = data.get("phone", "").strip()
-
-    current_user_phone = session["user"].get("phone")
-    group = groups_col.find_one({"_id": ObjectId(group_id)})
-
-    if not group:
-        return jsonify({"message": "Group not found"}), 404
-    if group["creator_phone"] != current_user_phone:
-        return jsonify({"message": "Only admin can add members"}), 403
-
-    if any(m["phone"] == phone for m in group["members"]):
-        return jsonify({"message": "Member already exists"}), 400
-
-    # ✅ Push new member
-    groups_col.update_one(
-        {"_id": ObjectId(group_id)},
-        {"$push": {"members": {"name": name, "phone": phone}}}
-    )
-
-    updated_group = groups_col.find_one({"_id": ObjectId(group_id)})
-    return jsonify({"message": "Member added successfully", "members": updated_group["members"]})
-
-@app.route("/group/<group_id>/my_balances")
-def my_balances(group_id):
-    if "user" not in session:
-        return jsonify({"error": "Unauthorized"}), 401
-
-    current_user = session["user"]
-    current_user_phone = current_user["phone"]
-
-    expenses = list(group_expenses_col.find({"group_id": ObjectId(group_id)}).sort("created_at", -1))
-
-    to_get = []
-    to_pay = []
-    transactions = []
-    balance_map = defaultdict(float)
-
-    group = groups_col.find_one({"_id": ObjectId(group_id)})
-    if not group:
-        return jsonify({"error": "Group not found"}), 404
-
-    member_lookup = {m["phone"]: m["name"] for m in group["members"]}
-
-    for exp in expenses:
-        title = exp.get("title", "")
-        paid_by = exp.get("paid_by")
-        created_at = exp.get("created_at", datetime.utcnow())
-
-        user_involved = any(split["phone"] == current_user_phone for split in exp.get("splits", [])) or current_user_phone == paid_by
-        if not user_involved:
-            continue
-
-        for split in exp.get("splits", []):
-            member_phone = split.get("phone")
-            amount = float(split.get("amount", 0))
-            role = split.get("role")
-
-            if member_phone == current_user_phone and role == "owes":
-                # You owe someone
-                balance_map[paid_by] -= amount
-                transactions.append({
-                    "to": paid_by,
-                    "to_name": member_lookup.get(paid_by, paid_by),
-                    "amount": amount,
-                    "title": title,
-                    "date": created_at,
-                    "direction": "pay"
-                })
-
-            elif member_phone != current_user_phone and paid_by == current_user_phone and role == "owes":
-                # You paid for someone else
-                balance_map[member_phone] += amount
-                transactions.append({
-                    "to": member_phone,
-                    "to_name": member_lookup.get(member_phone, member_phone),
-                    "amount": amount,
-                    "title": title,
-                    "date": created_at,
-                    "direction": "receive"
-                })
-
-    # Convert to proper lists
-    for phone, amount in balance_map.items():
-        name = member_lookup.get(phone, phone)
-        if amount > 0:
-            to_get.append({
-                "phone": phone,
-                "name": name,
-                "amount": round(amount, 2)
-            })
-        elif amount < 0:
-            to_pay.append({
-                "phone": phone,
-                "name": name,
-                "amount": round(abs(amount), 2)
-            })
-
-    total_to_get = round(sum([entry["amount"] for entry in to_get]), 2)
-    total_to_pay = round(sum([entry["amount"] for entry in to_pay]), 2)
-    total_balance = round(total_to_get - total_to_pay, 2)
-
-    return jsonify({
-        "to_get": to_get,
-        "to_pay": to_pay,
-        "total_balance": total_balance,
-        "amount_to_get": total_to_get,
-        "amount_to_pay": total_to_pay,
-        "transactions": sorted(transactions, key=lambda x: x["date"], reverse=True)
-    })
-
-
-@app.route("/group/<group_id>/all_expenses")
-def all_expenses(group_id):
-    if "user" not in session:
-        return jsonify({"error": "Unauthorized"}), 401
-
-    group = groups_col.find_one({"_id": ObjectId(group_id)})
-    if not group:
-        return jsonify({"error": "Group not found"}), 404
-
-    member_lookup = {m["phone"]: m["name"] for m in group["members"]}
-
-    expenses = list(group_expenses_col.find({"group_id": ObjectId(group_id)}).sort("created_at", -1))
-    results = []
-
-    for exp in expenses:
-        results.append({
-            "title": exp.get("title", ""),
-            "amount": float(exp.get("amount", 0)),
-            "created_at": exp.get("created_at").isoformat(),
-            "paid_by": member_lookup.get(exp.get("paid_by", ""), exp.get("paid_by", "")),
-            "splits": [
-                {
-                    "phone": s["phone"],
-                    "name": member_lookup.get(s["phone"], s["phone"]),
-                    "amount": float(s["amount"]),
-                    "role": s["role"]
-                }
-                for s in exp.get("splits", [])
-            ]
-        })
-
-    return jsonify({"expenses": results})
-
-
-@app.route("/group/<group_id>/analytics_data")
-def analytics_data(group_id):
-    expenses = list(group_expenses_col.find({"group_id": ObjectId(group_id)}))
-
-    total_expense = sum(float(e["amount"]) for e in expenses)
-
-    bar_data = defaultdict(float)
-    pie_data = defaultdict(float)
-
-    for exp in expenses:
-        date = exp.get("created_at", datetime.utcnow())
-        day = date.strftime("%Y-%m-%d")
-        week = f"Week {date.isocalendar()[1]}"
-        month = date.strftime("%B")
-
-        # Aggregate for all levels
-        bar_data[day] += float(exp["amount"])
-        pie_data[exp["title"]] += float(exp["amount"])  # or paid_by name
-
-    return jsonify({
-        "total": round(total_expense, 2),
-        "bar_daily": dict(bar_data),
-        "bar_weekly": group_by_week(bar_data),
-        "bar_monthly": group_by_month(bar_data),
-        "pie": dict(pie_data)
-    })
-
-def group_by_week(data):
-    weekly = defaultdict(float)
-    for dstr, val in data.items():
-        dt = datetime.strptime(dstr, "%Y-%m-%d")
-        key = f"Week {dt.isocalendar()[1]}"
-        weekly[key] += val
-    return weekly
-
-def group_by_month(data):
-    monthly = defaultdict(float)
-    for dstr, val in data.items():
-        dt = datetime.strptime(dstr, "%Y-%m-%d")
-        key = dt.strftime("%B")
-        monthly[key] += val
-    return monthly
-
-
-@app.route("/group/<group_id>/settle_payment", methods=["POST"])
-def settle_payment(group_id):
-    data = request.get_json()
-
-    entry_id = data.get("entry_id")         # The _id of the balance entry
-    phone = str(data.get("phone", "")).strip()  # Who is initiating the payment
-    method = data.get("method")
-
-    group = groups_collection.find_one({"_id": ObjectId(group_id)})
-    if not group:
-        return jsonify({"error": "Group not found"}), 404
-
-    balances = group.get("balances", [])
-    updated = False
-
-    for entry in balances:
-        if str(entry.get("_id")) == entry_id:
-            sender_phone = str(entry.get("from", "")).strip()
-            receiver_phone = str(entry.get("to", "")).strip()
-
-            # ✅ Validate only sender or receiver can settle
-            if phone not in [sender_phone, receiver_phone]:
-                return jsonify({
-                    "error": "Unauthorized: Only sender or receiver can settle this payment."
-                }), 403
-
-            if entry.get("paid"):
-                return jsonify({
-                    "message": "This transaction is already settled."
-                }), 200
-
-            # ✅ Mark transaction as paid
-            entry["paid"] = True
-            entry["settled_by"] = phone
-            entry["settled_at"] = datetime.now().isoformat()
-            entry["method"] = method
-            updated = True
-            break
-
-    if updated:
-        groups_collection.update_one(
-            {"_id": ObjectId(group_id)},
-            {"$set": {"balances": balances}}
-        )
-        return jsonify({"message": "Payment marked as settled."}), 200
-    else:
-        return jsonify({"error": "Balance entry not found."}), 404
+#     # Get current user from DB using phone/email stored in session
+#     user_session = session["user"]
+#     user_email = user_session.get("email")
+#     user_phone = user_session.get("phone")
+#     current_user = users_col.find_one({"email": user_email}) or users_col.find_one({"phone": user_phone})
+
+#     if not current_user:
+#         return "User not found", 404
+
+#     if request.method == "POST":
+#         data = request.form
+#         group_name = data.get("group_name")
+#         member_names = request.form.getlist("member_name")
+#         member_phones = request.form.getlist("member_phone")
+
+#         members = [
+#             {"name": name, "phone": phone}
+#             for name, phone in zip(member_names, member_phones)
+#             if name and phone
+#         ]
+
+#         # Prepend current user to members
+#         current_member = {"name": current_user["name"], "phone": current_user["phone"]}
+#         # Avoid duplicate entry of current user
+#         members = [current_member] + [m for m in members if m["phone"] != current_user["phone"]]
+
+#         if not group_name or not members:
+#             return render_template("create_group.html", error="Fill all fields", group_name=group_name, members=members)
+
+#         db.groups.insert_one({
+#             "group_name": group_name,
+#             "creator_email": current_user["email"],
+#             "creator_phone": current_user["phone"],
+#             "members": members,
+#             "group_expenses": 0,
+#             "created_at": datetime.now()
+#         })
+
+#         return redirect(url_for("home"))
+
+#     # Pass current user info to prepopulate
+#     return render_template("create_group.html", current_user=current_user)
+
+
+# def calculate_user_balance(group_id, user_phone):
+#     expenses = list(group_expenses_col.find({"group_id": ObjectId(group_id)}))
+
+#     balance_map = defaultdict(float)
+
+#     for exp in expenses:
+#         paid_by = exp.get("paid_by")
+#         splits = exp.get("splits", [])
+
+#         for split in splits:
+#             member_phone = split.get("phone")
+#             amount = float(split.get("amount", 0))
+#             role = split.get("role")
+
+#             if member_phone == user_phone and role == "owes":
+#                 # You owe someone (who paid)
+#                 balance_map[paid_by] -= amount
+
+#             elif member_phone != user_phone and paid_by == user_phone and role == "owes":
+#                 # You paid for someone else
+#                 balance_map[member_phone] += amount
+
+#     # Now summarize net balances
+#     total_to_get = sum([amt for amt in balance_map.values() if amt > 0])
+#     total_to_pay = sum([-amt for amt in balance_map.values() if amt < 0])
+#     total_balance = total_to_get - total_to_pay
+
+#     return round(total_balance, 2), round(total_to_pay, 2), round(total_to_get, 2)
+
+
+# @app.route("/group/<group_id>")
+# def group_detail(group_id):
+#     if "user" not in session:
+#         return redirect(url_for("auth"))
+
+#     user_data = session["user"]
+#     username = user_data.get("email")
+#     user_phone = user_data.get("phone")
+
+#     try:
+#         group_obj_id = ObjectId(group_id)
+#     except:
+#         return "Invalid Group ID", 400
+
+#     group = groups_col.find_one({"_id": group_obj_id})
+#     if not group:
+#         return "Group not found", 404
+
+#     is_member = any(m["phone"] == user_phone for m in group["members"])
+#     if group["creator_email"] != username and not is_member:
+#         return "Unauthorized", 403
+
+#     expenses = list(group_expenses_col.find({"group_id": group_obj_id}).sort("created_at", -1))
+#     total_balance, total_to_pay, total_to_get = calculate_user_balance(group_id, user_phone)
+
+#     category_data = defaultdict(float)
+#     for exp in expenses:
+#         category_data[exp.get("category", "Other")] += float(exp.get("amount", 0))
+
+#     chart_labels = list(category_data.keys())
+#     chart_values = list(category_data.values())
+
+#     return render_template("group_detail.html",
+#                            user=user_data,
+#                            group=group,
+#                            expenses=expenses,
+#                            current_user_phone=user_phone,
+#                            chart_labels=chart_labels,
+#                            chart_data=chart_values,
+#                            total_balance=total_balance,
+#                            amount_to_pay=total_to_pay,
+#                            amount_to_receive=total_to_get)
+
+
+# @app.route("/group/<group_id>/add_expense", methods=["POST"])
+# def add_group_expense(group_id):
+#     if "user" not in session:
+#         return jsonify({"error": "Unauthorized"}), 403
+
+#     data = request.get_json()
+#     title = data.get("title")
+#     amount = float(data.get("amount", 0))
+#     paid_by = data.get("paid_by")
+#     splits = data.get("splits", [])
+
+#     new_expense = {
+#         "group_id": ObjectId(group_id),
+#         "title": title,
+#         "amount": amount,
+#         "paid_by": paid_by,
+#         "splits": splits,
+#         "created_at": datetime.utcnow(),
+#         "category": "General"
+#     }
+
+#     group_expenses_col.insert_one(new_expense)
+
+#     # Recalculate updated balances
+#     user_phone = session["user"]["phone"]
+#     total_balance, amount_to_pay, amount_to_get = calculate_user_balance(group_id, user_phone)
+
+#     return jsonify({
+#         "message": "Expense added successfully!",
+#         "total_balance": total_balance,
+#         "amount_to_pay": amount_to_pay,
+#         "amount_to_receive": amount_to_get
+#     })
+
+# @app.route('/group/<group_id>/delete_member', methods=['POST'])
+# def delete_member(group_id):
+#     if 'user' not in session:
+#         return jsonify({"message": "Unauthorized"}), 401
+
+#     data = request.get_json()
+#     phone = data.get('phone')
+#     current_user_phone = session["user"].get("phone")
+
+#     group = groups_col.find_one({"_id": ObjectId(group_id)})
+#     if not group:
+#         return jsonify({"message": "Group not found"}), 404
+
+#     if group['creator_phone'] != current_user_phone:
+#         return jsonify({"message": "Only admin can delete members"}), 403
+
+#     updated_members = [m for m in group["members"] if m["phone"] != phone]
+#     groups_col.update_one(
+#         {"_id": ObjectId(group_id)},
+#         {"$set": {"members": updated_members}}
+#     )
+
+#     return jsonify({"message": "Member deleted successfully"})
+
+# @app.route('/group/<group_id>/edit_member', methods=['POST'])
+# def edit_member(group_id):
+#     if 'user' not in session:
+#         return jsonify({"message": "Unauthorized"}), 401
+
+#     data = request.get_json()
+#     original_phone = data.get("original_phone", "").strip()
+#     new_name = data.get("name", "").strip()
+
+#     current_user_phone = session["user"].get("phone")
+#     group = groups_col.find_one({"_id": ObjectId(group_id)})
+
+#     if not group:
+#         return jsonify({"message": "Group not found"}), 404
+#     if group["creator_phone"] != current_user_phone:
+#         return jsonify({"message": "Only admin can edit members"}), 403
+
+#     # ✅ Modify the matching member
+#     updated_members = []
+#     found = False
+#     for m in group["members"]:
+#         if m["phone"] == original_phone:
+#             updated_members.append({"phone": m["phone"], "name": new_name})
+#             found = True
+#         else:
+#             updated_members.append(m)
+
+#     if not found:
+#         return jsonify({"message": "Member not found"}), 404
+
+#     groups_col.update_one(
+#         {"_id": ObjectId(group_id)},
+#         {"$set": {"members": updated_members}}
+#     )
+
+#     updated_group = groups_col.find_one({"_id": ObjectId(group_id)})
+#     return jsonify({"message": "Member updated successfully", "members": updated_group["members"]})
+
+
+# @app.route('/group/<group_id>/add_member', methods=['POST'])
+# def add_member(group_id):
+#     if 'user' not in session:
+#         return jsonify({"message": "Unauthorized"}), 401
+
+#     data = request.get_json()
+#     name = data.get("name", "").strip()
+#     phone = data.get("phone", "").strip()
+
+#     current_user_phone = session["user"].get("phone")
+#     group = groups_col.find_one({"_id": ObjectId(group_id)})
+
+#     if not group:
+#         return jsonify({"message": "Group not found"}), 404
+#     if group["creator_phone"] != current_user_phone:
+#         return jsonify({"message": "Only admin can add members"}), 403
+
+#     if any(m["phone"] == phone for m in group["members"]):
+#         return jsonify({"message": "Member already exists"}), 400
+
+#     # ✅ Push new member
+#     groups_col.update_one(
+#         {"_id": ObjectId(group_id)},
+#         {"$push": {"members": {"name": name, "phone": phone}}}
+#     )
+
+#     updated_group = groups_col.find_one({"_id": ObjectId(group_id)})
+#     return jsonify({"message": "Member added successfully", "members": updated_group["members"]})
+
+# @app.route("/group/<group_id>/my_balances")
+# def my_balances(group_id):
+#     if "user" not in session:
+#         return jsonify({"error": "Unauthorized"}), 401
+
+#     current_user = session["user"]
+#     current_user_phone = current_user["phone"]
+
+#     expenses = list(group_expenses_col.find({"group_id": ObjectId(group_id)}).sort("created_at", -1))
+
+#     to_get = []
+#     to_pay = []
+#     transactions = []
+#     balance_map = defaultdict(float)
+
+#     group = groups_col.find_one({"_id": ObjectId(group_id)})
+#     if not group:
+#         return jsonify({"error": "Group not found"}), 404
+
+#     member_lookup = {m["phone"]: m["name"] for m in group["members"]}
+
+#     for exp in expenses:
+#         title = exp.get("title", "")
+#         paid_by = exp.get("paid_by")
+#         created_at = exp.get("created_at", datetime.utcnow())
+
+#         user_involved = any(split["phone"] == current_user_phone for split in exp.get("splits", [])) or current_user_phone == paid_by
+#         if not user_involved:
+#             continue
+
+#         for split in exp.get("splits", []):
+#             member_phone = split.get("phone")
+#             amount = float(split.get("amount", 0))
+#             role = split.get("role")
+
+#             if member_phone == current_user_phone and role == "owes":
+#                 # You owe someone
+#                 balance_map[paid_by] -= amount
+#                 transactions.append({
+#                     "to": paid_by,
+#                     "to_name": member_lookup.get(paid_by, paid_by),
+#                     "amount": amount,
+#                     "title": title,
+#                     "date": created_at,
+#                     "direction": "pay"
+#                 })
+
+#             elif member_phone != current_user_phone and paid_by == current_user_phone and role == "owes":
+#                 # You paid for someone else
+#                 balance_map[member_phone] += amount
+#                 transactions.append({
+#                     "to": member_phone,
+#                     "to_name": member_lookup.get(member_phone, member_phone),
+#                     "amount": amount,
+#                     "title": title,
+#                     "date": created_at,
+#                     "direction": "receive"
+#                 })
+
+#     # Convert to proper lists
+#     for phone, amount in balance_map.items():
+#         name = member_lookup.get(phone, phone)
+#         if amount > 0:
+#             to_get.append({
+#                 "phone": phone,
+#                 "name": name,
+#                 "amount": round(amount, 2)
+#             })
+#         elif amount < 0:
+#             to_pay.append({
+#                 "phone": phone,
+#                 "name": name,
+#                 "amount": round(abs(amount), 2)
+#             })
+
+#     total_to_get = round(sum([entry["amount"] for entry in to_get]), 2)
+#     total_to_pay = round(sum([entry["amount"] for entry in to_pay]), 2)
+#     total_balance = round(total_to_get - total_to_pay, 2)
+
+#     return jsonify({
+#         "to_get": to_get,
+#         "to_pay": to_pay,
+#         "total_balance": total_balance,
+#         "amount_to_get": total_to_get,
+#         "amount_to_pay": total_to_pay,
+#         "transactions": sorted(transactions, key=lambda x: x["date"], reverse=True)
+#     })
+
+
+# @app.route("/group/<group_id>/all_expenses")
+# def all_expenses(group_id):
+#     if "user" not in session:
+#         return jsonify({"error": "Unauthorized"}), 401
+
+#     group = groups_col.find_one({"_id": ObjectId(group_id)})
+#     if not group:
+#         return jsonify({"error": "Group not found"}), 404
+
+#     member_lookup = {m["phone"]: m["name"] for m in group["members"]}
+
+#     expenses = list(group_expenses_col.find({"group_id": ObjectId(group_id)}).sort("created_at", -1))
+#     results = []
+
+#     for exp in expenses:
+#         results.append({
+#             "title": exp.get("title", ""),
+#             "amount": float(exp.get("amount", 0)),
+#             "created_at": exp.get("created_at").isoformat(),
+#             "paid_by": member_lookup.get(exp.get("paid_by", ""), exp.get("paid_by", "")),
+#             "splits": [
+#                 {
+#                     "phone": s["phone"],
+#                     "name": member_lookup.get(s["phone"], s["phone"]),
+#                     "amount": float(s["amount"]),
+#                     "role": s["role"]
+#                 }
+#                 for s in exp.get("splits", [])
+#             ]
+#         })
+
+#     return jsonify({"expenses": results})
+
+
+# @app.route("/group/<group_id>/analytics_data")
+# def analytics_data(group_id):
+#     expenses = list(group_expenses_col.find({"group_id": ObjectId(group_id)}))
+
+#     total_expense = sum(float(e["amount"]) for e in expenses)
+
+#     bar_data = defaultdict(float)
+#     pie_data = defaultdict(float)
+
+#     for exp in expenses:
+#         date = exp.get("created_at", datetime.utcnow())
+#         day = date.strftime("%Y-%m-%d")
+#         week = f"Week {date.isocalendar()[1]}"
+#         month = date.strftime("%B")
+
+#         # Aggregate for all levels
+#         bar_data[day] += float(exp["amount"])
+#         pie_data[exp["title"]] += float(exp["amount"])  # or paid_by name
+
+#     return jsonify({
+#         "total": round(total_expense, 2),
+#         "bar_daily": dict(bar_data),
+#         "bar_weekly": group_by_week(bar_data),
+#         "bar_monthly": group_by_month(bar_data),
+#         "pie": dict(pie_data)
+#     })
+
+# def group_by_week(data):
+#     weekly = defaultdict(float)
+#     for dstr, val in data.items():
+#         dt = datetime.strptime(dstr, "%Y-%m-%d")
+#         key = f"Week {dt.isocalendar()[1]}"
+#         weekly[key] += val
+#     return weekly
+
+# def group_by_month(data):
+#     monthly = defaultdict(float)
+#     for dstr, val in data.items():
+#         dt = datetime.strptime(dstr, "%Y-%m-%d")
+#         key = dt.strftime("%B")
+#         monthly[key] += val
+#     return monthly
+
+
+# @app.route("/group/<group_id>/settle_payment", methods=["POST"])
+# def settle_payment(group_id):
+#     data = request.get_json()
+
+#     entry_id = data.get("entry_id")         # The _id of the balance entry
+#     phone = str(data.get("phone", "")).strip()  # Who is initiating the payment
+#     method = data.get("method")
+
+#     group = groups_collection.find_one({"_id": ObjectId(group_id)})
+#     if not group:
+#         return jsonify({"error": "Group not found"}), 404
+
+#     balances = group.get("balances", [])
+#     updated = False
+
+#     for entry in balances:
+#         if str(entry.get("_id")) == entry_id:
+#             sender_phone = str(entry.get("from", "")).strip()
+#             receiver_phone = str(entry.get("to", "")).strip()
+
+#             # ✅ Validate only sender or receiver can settle
+#             if phone not in [sender_phone, receiver_phone]:
+#                 return jsonify({
+#                     "error": "Unauthorized: Only sender or receiver can settle this payment."
+#                 }), 403
+
+#             if entry.get("paid"):
+#                 return jsonify({
+#                     "message": "This transaction is already settled."
+#                 }), 200
+
+#             # ✅ Mark transaction as paid
+#             entry["paid"] = True
+#             entry["settled_by"] = phone
+#             entry["settled_at"] = datetime.now().isoformat()
+#             entry["method"] = method
+#             updated = True
+#             break
+
+#     if updated:
+#         groups_collection.update_one(
+#             {"_id": ObjectId(group_id)},
+#             {"$set": {"balances": balances}}
+#         )
+#         return jsonify({"message": "Payment marked as settled."}), 200
+#     else:
+#         return jsonify({"error": "Balance entry not found."}), 404
 
 
 if __name__ == "__main__":
