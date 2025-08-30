@@ -5,21 +5,20 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeBtn = document.getElementById("close-expense");
   const splitTypeRadios = document.querySelectorAll('input[name="split-type"]');
   const customSplitSection = document.getElementById("custom-split-section");
-  const checkboxes = document.querySelectorAll('#member-checkboxes input[type="checkbox"]');
   const customSplitsDiv = document.getElementById("custom-splits");
   const scrollBtn = document.getElementById("scroll-to-top");
   const modalContent = document.querySelector(".modal-content");
-
+  
   if (modalContent) {
     modalContent.addEventListener("scroll", () => {
       scrollBtn.style.display = modalContent.scrollTop > 150 ? "block" : "none";
     });
-
+  
     scrollBtn.onclick = () => {
       modalContent.scrollTo({ top: 0, behavior: "smooth" });
     };
   }
-
+  
   if (openBtn && closeBtn && modal) {
     openBtn.onclick = () => (modal.style.display = "block");
     closeBtn.onclick = () => (modal.style.display = "none");
@@ -27,64 +26,103 @@ document.addEventListener("DOMContentLoaded", () => {
       if (e.target === modal) modal.style.display = "none";
     };
   }
-
-  splitTypeRadios.forEach(radio => {
-    radio.addEventListener("change", () => {
-      if (radio.value === "custom") {
-        customSplitSection.style.display = "block";
-        populateCustomInputs();
-      } else {
-        customSplitSection.style.display = "none";
-      }
+  
+  // Setup clickable member cards
+  function initMemberCards() {
+    const memberCards = Array.from(document.querySelectorAll('#member-checkboxes .member'));
+    memberCards.forEach(card => {
+      // initial sync
+      const cb = card.querySelector('input[type="checkbox"]');
+      if (cb && cb.checked) card.classList.add('selected'); else card.classList.remove('selected');
+  
+      // click handler (toggle)
+      card.addEventListener('click', (e) => {
+        // if user clicked on the checkbox itself, let the checkbox toggle naturally then sync class
+        const clickedCheckbox = e.target.closest('input[type="checkbox"]');
+        if (clickedCheckbox) {
+          card.classList.toggle('selected', clickedCheckbox.checked);
+        } else {
+          // otherwise toggle the hidden checkbox and class
+          if (!cb) return;
+          cb.checked = !cb.checked;
+          card.classList.toggle('selected', cb.checked);
+        }
+  
+        // if custom mode, repopulate inputs
+        const splitType = document.querySelector('input[name="split-type"]:checked')?.value;
+        if (splitType === 'custom') populateCustomInputs();
+      });
     });
-  });
-
-  checkboxes.forEach(cb => {
-    cb.addEventListener("change", () => {
-      const isCustom = document.querySelector('input[name="split-type"]:checked').value === "custom";
-      if (isCustom) populateCustomInputs();
-    });
-  });
-
+  }
+  
+  // call init on DOM ready
+  initMemberCards();
+  
+  function getMemberCheckboxes() {
+    return Array.from(document.querySelectorAll('#member-checkboxes input[type="checkbox"]'));
+  }
+  
   function populateCustomInputs() {
+    const customSplitsDiv = document.getElementById("custom-splits");
     customSplitsDiv.innerHTML = '';
+  
+    const checkboxes = getMemberCheckboxes();
     checkboxes.forEach(cb => {
       if (cb.checked) {
         const phone = cb.value;
-        const label = cb.nextElementSibling.innerText;
-
+        // label text from parent .member data-name or associated label
+        const parent = cb.closest('.member');
+        const labelText = parent?.dataset.name || (cb.nextElementSibling ? cb.nextElementSibling.innerText : phone);
+  
         const div = document.createElement("div");
+        div.className = 'custom-split-row';
+        div.style.marginBottom = '8px';
         div.innerHTML = `
-          <label>${label}:</label>
-          <input type="number" name="custom-split" data-phone="${phone}" min="0">
+          <label style="font-weight:600; display:block; margin-bottom:6px;">${labelText}:</label>
+          <input type="number" name="custom-split" data-phone="${phone}" min="0" step="0.01" style="width:100%; padding:8px; border-radius:6px; border:1px solid #ccc;">
         `;
         customSplitsDiv.appendChild(div);
       }
     });
   }
-
+  
+  // make sure split-type radio changes update custom inputs / visibility
+  splitTypeRadios.forEach(r => {
+    r.addEventListener('change', () => {
+      const customSection = document.getElementById('custom-split-section');
+      if (r.value === 'custom' && r.checked) {
+        customSection.style.display = 'block';
+        populateCustomInputs();
+      } else if (r.value === 'equal' && r.checked) {
+        customSection.style.display = 'none';
+        document.getElementById('custom-splits').innerHTML = '';
+      }
+    });
+  });
+  
   // Expense form submission
   const expenseForm = document.getElementById("expense-form");
   if (expenseForm) {
     expenseForm.addEventListener("submit", function (e) {
       e.preventDefault();
-
+  
       const title = document.getElementById("expense-title").value.trim();
       const amount = parseFloat(document.getElementById("expense-amount").value);
       const paidBy = document.getElementById("paid-by").value;
-
+  
+      const checkboxes = getMemberCheckboxes();
       const selectedMembers = Array.from(checkboxes)
         .filter(cb => cb.checked)
         .map(cb => cb.value);
-
+  
       if (selectedMembers.length === 0) {
         alert("Please select at least one member to split the amount.");
         return;
       }
-
+  
       const splitType = document.querySelector('input[name="split-type"]:checked').value;
       let splits = [];
-
+  
       if (splitType === "equal") {
         const share = parseFloat((amount / selectedMembers.length).toFixed(2));
         splits = selectedMembers.map(phone => ({
@@ -93,7 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
           role: phone === paidBy ? "paid" : "owes"
         }));
       }
-
+  
       if (splitType === "custom") {
         const inputs = document.querySelectorAll('#custom-splits input');
         splits = Array.from(inputs).map(input => ({
@@ -101,14 +139,14 @@ document.addEventListener("DOMContentLoaded", () => {
           amount: parseFloat(input.value),
           role: input.dataset.phone === paidBy ? "paid" : "owes"
         }));
-
+  
         const hasEmpty = splits.some(s => isNaN(s.amount) || s.amount <= 0);
         if (hasEmpty) {
           alert("Please fill all custom split amounts correctly.");
           return;
         }
       }
-
+  
       fetch(window.location.pathname + "/add_expense", {
         method: "POST",
         headers: { 'Content-Type': 'application/json' },
@@ -135,7 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
   }
-
+  
   // Tabs
   document.querySelectorAll(".tab").forEach(tab => {
     tab.addEventListener("click", () => {
@@ -145,12 +183,12 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("tab-" + tab.dataset.tab).classList.add("active");
     });
   });
-
+  
   // Initialize
   loadBalanceData();
   loadExpenseHistory();
   loadAnalyticsData();
-
+  
   const barFilter = document.getElementById("bar-filter");
   if (barFilter) {
     barFilter.addEventListener("change", () => {
@@ -163,7 +201,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
-
+  
 // MEMBER FUNCTIONS
 function deleteMember(phone) {
   if (confirm("Are you sure you want to delete this member?")) {
@@ -183,7 +221,7 @@ function deleteMember(phone) {
       });
   }
 }
-
+  
 function openAddMemberModal() {
   document.getElementById("member-mode").value = "add";
   document.getElementById("member-modal-title").textContent = "Add Member";
@@ -191,47 +229,45 @@ function openAddMemberModal() {
   document.getElementById("member-phone").disabled = false;
   document.getElementById("member-modal").style.display = "block";
 }
-
+  
 function editMember(phone) {
-  const member = [...document.querySelectorAll(".member-item")].find(item =>
-    item.textContent.includes(phone)
-  );
+  const member = document.querySelector(`.member-item[data-phone="${phone}"]`);
   if (!member) return;
-
-  const name = member.querySelector("span").textContent.split(" (")[0];
-
+  
+  const name = member.dataset.name;
+  
   document.getElementById("member-mode").value = "edit";
   document.getElementById("member-modal-title").textContent = "Edit Member";
   document.getElementById("member-name").value = name;
   document.getElementById("member-phone").value = phone;
   document.getElementById("member-phone").disabled = true;
   document.getElementById("member-phone-original").value = phone;
-
+  
   document.getElementById("member-modal").style.display = "block";
 }
-
+  
 function closeMemberModal() {
   document.getElementById("member-modal").style.display = "none";
 }
-
+  
 const memberForm = document.getElementById("member-form");
 if (memberForm) {
   memberForm.addEventListener("submit", function (e) {
     e.preventDefault();
-
+  
     const mode = document.getElementById("member-mode").value;
     const name = document.getElementById("member-name").value.trim();
     const phone = document.getElementById("member-phone").value.trim();
     const original_phone = document.getElementById("member-phone-original").value;
-
+  
     const payload = {
       name,
       phone,
       original_phone: mode === "edit" ? original_phone : null
     };
-
+  
     const endpoint = mode === "edit" ? "/edit_member" : "/add_member";
-
+  
     fetch(window.location.pathname + endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -249,33 +285,33 @@ if (memberForm) {
       });
   });
 }
-
+  
 // BALANCE FUNCTIONS
 function loadBalanceData() {
   const groupId = window.location.pathname.split("/")[2];
-
+  
   fetch(`/group/${groupId}/my_balances`)
     .then(response => response.json())
     .then(data => {
       document.getElementById("total-balance").innerText = `₹${data.total_balance}`;
       document.getElementById("amount-to-pay").innerText = `₹${data.amount_to_pay}`;
       document.getElementById("amount-to-get").innerText = `₹${data.amount_to_get}`;
-
+  
       const toGetDiv = document.getElementById("to-get-list");
       const toPayDiv = document.getElementById("to-pay-list");
       const timelineDiv = document.getElementById("balance-timeline");
-
+  
       toGetDiv.innerHTML = "";
       toPayDiv.innerHTML = "";
       timelineDiv.innerHTML = "";
-
+  
       data.to_get.forEach(item => {
         const entry = document.createElement("div");
         entry.className = "balance-entry";
         entry.innerText = `${item.name} owes you ₹${item.amount}`;
         toGetDiv.appendChild(entry);
       });
-
+  
       data.to_pay.forEach(item => {
         const entry = document.createElement("div");
         entry.className = "balance-entry";
@@ -286,13 +322,13 @@ function loadBalanceData() {
         `;
         toPayDiv.appendChild(entry);
       });
-
+  
       data.transactions.forEach(t => {
         const box = document.createElement("div");
         box.className = "timeline-entry";
         const date = new Date(t.date).toLocaleString();
         const action = t.direction === "receive" ? "Received from" : "Paid to";
-
+  
         box.innerHTML = `
           <div class="dot"></div>
           <div class="content">
@@ -303,12 +339,12 @@ function loadBalanceData() {
         `;
         timelineDiv.appendChild(box);
       });
-
+  
       const totalEl = document.getElementById("total-balance");
       totalEl.className = `amount ${data.total_balance >= 0 ? "amount-positive" : "amount-negative"}`;
     });
 }
-
+  
 // EXPENSE HISTORY
 function loadExpenseHistory() {
   const groupId = window.location.pathname.split("/")[2];
@@ -321,16 +357,16 @@ function loadExpenseHistory() {
       console.error("Error loading expense history:", err);
     });
 }
-
+  
 function renderExpenseHistory(expenses) {
   const container = document.getElementById("expense-history-list");
   container.innerHTML = "";
-
+  
   expenses.forEach((exp) => {
     const dateStr = new Date(exp.created_at).toLocaleString();
     const entry = document.createElement("div");
     entry.className = "history-entry";
-
+  
     entry.innerHTML = `
       <div class="history-title">${exp.title} - ₹${exp.amount}</div>
       <div class="history-details">
@@ -341,41 +377,41 @@ function renderExpenseHistory(expenses) {
         <span class="history-date">${dateStr}</span>
       </div>
     `;
-
+  
     entry.addEventListener("click", () => {
       entry.classList.toggle("open");
     });
-
+  
     container.appendChild(entry);
   });
 }
-
+  
 let analyticsData = null;
-
+  
 document.querySelectorAll(".tab").forEach(tab => {
   tab.addEventListener("click", () => {
     // Deactivate all tabs
     document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
     document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-
+  
     // Activate clicked tab
     tab.classList.add("active");
     const tabName = tab.dataset.tab;
     document.getElementById("tab-" + tabName).classList.add("active");
-
+  
     // Show chart only in analytics tab
     const chartWrapper = document.getElementById("charts-container");
     if (chartWrapper) {
       chartWrapper.style.display = tabName === "analytics" ? "flex" : "none";
     }
-
+  
     // Optionally trigger loadAnalyticsData only when entering the analytics tab
     if (tabName === "analytics") {
       loadAnalyticsData();
     }
   });
 });
-
+  
 function loadAnalyticsData() {
   const groupId = window.location.pathname.split("/")[2];
   fetch(`/group/${groupId}/analytics_data`)
@@ -387,13 +423,13 @@ function loadAnalyticsData() {
       renderPieChart(data.pie);
     });
 }
-
+  
 let barChart, pieChart;
-
+  
 function renderBarChart(data) {
   const ctx = document.getElementById("bar-chart").getContext("2d");
   if (barChart) barChart.destroy();
-
+  
   barChart = new Chart(ctx, {
     type: "bar",
     data: {
@@ -420,11 +456,11 @@ function renderBarChart(data) {
     }
   });
 }
-
+  
 function renderPieChart(data) {
   const ctx = document.getElementById("pie-chart").getContext("2d");
   if (pieChart) pieChart.destroy();
-
+  
   pieChart = new Chart(ctx, {
     type: "pie",
     data: {
@@ -450,14 +486,14 @@ function renderPieChart(data) {
     }
   });
 }
-
+  
 function settlePayment(entryId, senderPhone, receiverPhone, amount, method, currentUserPhone, otherUserName) {
   const confirmMsg = method === "gpay"
     ? `Confirm Google Pay payment of ₹${amount} to ${otherUserName}?`
     : `Mark ₹${amount} as paid manually to ${otherUserName}?`;
-
+  
   if (!confirm(confirmMsg)) return;
-
+  
   fetch(window.location.pathname + "/settle_payment", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -483,4 +519,3 @@ function settlePayment(entryId, senderPhone, receiverPhone, amount, method, curr
       alert("Error settling payment.");
     });
 }
-

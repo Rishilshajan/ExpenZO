@@ -39,7 +39,7 @@
 
 
 <!-- Expense Modal -->
-<div id="expense-modal" class="modal">
+<div id="expense-modal" class="modal expense-modal">
   <div class="modal-content">
     <span id="close-expense" class="close">&times;</span>
     <h2>Add Group Expense</h2>
@@ -59,14 +59,15 @@
       </select>
 
       <label>Select Members to Split</label>
-      <div id="member-checkboxes">
-        {% for member in group.members %}
-          <div>
-            <input type="checkbox" id="mem{{ loop.index }}" name="members" value="{{ member.phone }}">
-            <label for="mem{{ loop.index }}">{{ member.name }}</label>
-          </div>
-        {% endfor %}
-      </div>
+<div id="member-checkboxes">
+  {% for member in group.members %}
+  <div class="member" data-phone="{{ member.phone }}" data-name="{{ member.name }}">
+    <input type="checkbox" id="mem{{ loop.index }}" name="members" value="{{ member.phone }}">
+    <label for="mem{{ loop.index }}">{{ member.name }}</label>
+  </div>
+  {% endfor %}
+</div>
+
 
       <label>Split Type:</label>
       <div>
@@ -106,34 +107,37 @@
 <!-- Section 2 - Tabbed Interface -->
 <div class="tab-container">
   <div class="tab-switcher">
-    <div class="tab active" data-tab="members">🧑‍🤝‍🧑 Members</div>
-    <div class="tab" data-tab="balance">💸 Balance</div>
-    <div class="tab" data-tab="history">🕒 History</div>
-    <div class="tab" data-tab="analytics">📊 Analytics</div>
+    <div class="tab active" data-tab="members">Members</div>
+    <div class="tab" data-tab="balance">Balance</div>
+    <div class="tab" data-tab="history">History</div>
+    <div class="tab" data-tab="analytics">Analytics</div>
   </div>
 
   <div class="tab-content active" id="tab-members">
   <div id="members-section">
     <h3>Group Members</h3>
     
-    <ul id="member-list">
-      {% for member in group.members %}
-        <li class="member-item">
-          <span>{{ member.name }}</span>
+  <ul class="member-list">
+  {% for member in group.members %}
+  <li class="member-item" data-phone="{{ member.phone }}" data-name="{{ member.name }}">
+    <div class="member-left">
+      <span class="member-name">{{ member.name }}</span>
+    </div>
 
-          {% if current_user_phone == group.creator_phone %}
-          <!-- Admin-only controls -->
-          <div class="member-actions">
-            <button class="edit-btn" onclick="editMember('{{ member.phone }}')">Edit</button>
-            <button class="delete-btn" onclick="deleteMember('{{ member.phone }}')">Delete</button>
-          </div>
-          {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
+    {% if current_user_phone == group.creator_phone %}
+    <div class="member-actions">
+      <button class="edit-btn" onclick="editMember('{{ member.phone }}')">Edit</button>
+      <button class="delete-btn" onclick="deleteMember('{{ member.phone }}')">Delete</button>
+    </div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+
+
 
      {% if current_user_phone == group.creator_phone %}
-    <button class="add-member-btn" onclick="openAddMemberModal()">➕ Add Member</button>
+    <button class="add-member-btn" onclick="openAddMemberModal()">Add Member</button>
     {% endif %} 
   </div>
  <div id="member-modal" class="modal" style="display:none;">
