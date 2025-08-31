@@ -6,224 +6,172 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/group_detail.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 </head>
 <body>
-<!-- group_detail.html - Section 1 -->
 <div class="section-summary">
-    <!-- Total Balance -->
-  <div class="summary-box">
-    <h3>Total Balance</h3>
-    <div id="total-balance" class="{% if total_balance >= 0 %}amount amount-positive{% else %}amount amount-negative{% endif %}">
-        ₹ {{ "{:,.2f}".format(total_balance) }}
+    <div class="summary-box">
+        <h3>Total Balance</h3>
+        <div id="total-balance" class="{% if total_balance >= 0 %}amount amount-positive{% else %}amount amount-negative{% endif %}">
+            ₹ {{ "{:,.2f}".format(total_balance) }}
+        </div>
     </div>
-</div>
-
-<div class="summary-box">
-    <h3>Amount to Pay</h3>
-    <div id="amount-to-pay" class="amount amount-negative">
-        ₹ {{ "{:,.2f}".format(amount_to_pay) }}
+    <div class="summary-box">
+        <h3>Amount to Pay</h3>
+        <div id="amount-to-pay" class="amount amount-negative">
+            ₹ {{ "{:,.2f}".format(amount_to_pay) }}
+        </div>
     </div>
-</div>
-
-<div class="summary-box">
-    <h3>Amount to Get</h3>
-    <div id="amount-to-get" class="amount amount-positive">
-        ₹ {{ "{:,.2f}".format(amount_to_receive) }}
+    <div class="summary-box">
+        <h3>Amount to Get</h3>
+        <div id="amount-to-get" class="amount amount-positive">
+            ₹ {{ "{:,.2f}".format(amount_to_receive) }}
+        </div>
     </div>
-</div>
-
-
-    <!-- Add Expense Button -->
     <button class="add-expense-btn" id="open-expense-modal">➕ Add Expense</button>
 
-
-<!-- Expense Modal -->
-<div id="expense-modal" class="modal expense-modal">
-  <div class="modal-content">
-    <span id="close-expense" class="close">&times;</span>
-    <h2>Add Group Expense</h2>
-
-    <form id="expense-form">
-      <label>Title / Reason</label>
-      <input type="text" id="expense-title" placeholder="e.g. Lunch at Cafe" required>
-
-      <label>Total Amount</label>
-      <input type="number" id="expense-amount" required>
-
-      <label>Who Paid?</label>
-      <select id="paid-by" required>
-        {% for member in group.members %}
-          <option value="{{ member.phone }}">{{ member.name }}</option>
-        {% endfor %}
-      </select>
-
-      <label>Select Members to Split</label>
-<div id="member-checkboxes">
-  {% for member in group.members %}
-  <div class="member" data-phone="{{ member.phone }}" data-name="{{ member.name }}">
-    <input type="checkbox" id="mem{{ loop.index }}" name="members" value="{{ member.phone }}">
-    <label for="mem{{ loop.index }}">{{ member.name }}</label>
-  </div>
-  {% endfor %}
-</div>
-
-
-      <label>Split Type:</label>
-      <div>
-        <input type="radio" name="split-type" value="equal" checked> Equal
-        <input type="radio" name="split-type" value="custom"> Custom
-      </div>
-
-      <div id="custom-split-section" style="display: none;">
-        <h4>Enter Custom Amounts</h4>
-        <div id="custom-splits">
-          <!-- JS will populate this -->
+    <div id="expense-modal" class="modal expense-modal">
+        <div class="modal-content">
+            <span id="close-expense" class="close">&times;</span>
+            <h2>Add Group Expense</h2>
+            <form id="expense-form">
+                <label>Title / Reason</label>
+                <input type="text" id="expense-title" placeholder="e.g. Lunch at Cafe" required>
+                <label>Total Amount</label>
+                <input type="number" id="expense-amount" required>
+                <label>Who Paid?</label>
+                <select id="paid-by" required>
+                    {% for member in group.members %}
+                    <option value="{{ member.phone }}">{{ member.name }}</option>
+                    {% endfor %}
+                </select>
+                <label>Select Members to Split</label>
+                <div id="member-checkboxes">
+                    {% for member in group.members %}
+                    <div class="member" data-phone="{{ member.phone }}" data-name="{{ member.name }}">
+                        <input type="checkbox" id="mem{{ loop.index }}" name="members" value="{{ member.phone }}">
+                        <label for="mem{{ loop.index }}">{{ member.name }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+                <label>Split Type:</label>
+                <div class="split-type-tabs">
+                    <input type="radio" name="split-type" value="equal" id="split-equal" checked>
+                    <label for="split-equal" class="split-tab">Equal</label>
+                    <input type="radio" name="split-type" value="custom" id="split-custom">
+                    <label for="split-custom" class="split-tab">Custom</label>
+                </div>
+                <div id="custom-split-section" style="display: none;">
+                    <h4>Enter Custom Amounts</h4>
+                    <div id="custom-splits">
+                        </div>
+                </div>
+                <button type="submit">Submit Expense</button>
+                <button id="scroll-to-top" style="
+                        position: fixed;
+                        bottom: 30px;
+                        right: 30px;
+                        background: #ff5722;
+                        color: #fff;
+                        border: none;
+                        padding: 10px 14px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        display: none;
+                        z-index: 1001;
+                    ">↑ Top</button>
+            </form>
         </div>
-      </div>
-
-      <button type="submit">Submit Expense</button>
-
-      <button id="scroll-to-top" style="
-  position: fixed;
-  bottom: 30px;
-  right: 30px;
-  background: #ff5722;
-  color: #fff;
-  border: none;
-  padding: 10px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: none;
-  z-index: 1001;
-">↑ Top</button>
-
-    </form>
-  </div>
+    </div>
 </div>
 
-</div>
-
-<!-- Section 2 - Tabbed Interface -->
 <div class="tab-container">
-  <div class="tab-switcher">
-    <div class="tab active" data-tab="members">Members</div>
-    <div class="tab" data-tab="balance">Balance</div>
-    <div class="tab" data-tab="history">History</div>
-    <div class="tab" data-tab="analytics">Analytics</div>
-  </div>
-
-  <div class="tab-content active" id="tab-members">
-  <div id="members-section">
-    <h3>Group Members</h3>
-    
-  <ul class="member-list">
-  {% for member in group.members %}
-  <li class="member-item" data-phone="{{ member.phone }}" data-name="{{ member.name }}">
-    <div class="member-left">
-      <span class="member-name">{{ member.name }}</span>
+    <div class="tab-switcher">
+        <div class="tab active" data-tab="members">Members</div>
+        <div class="tab" data-tab="balance">Balance</div>
+        <div class="tab" data-tab="history">History</div>
+        <div class="tab" data-tab="analytics">Analytics</div>
     </div>
-
-    {% if current_user_phone == group.creator_phone %}
-    <div class="member-actions">
-      <button class="edit-btn" onclick="editMember('{{ member.phone }}')">Edit</button>
-      <button class="delete-btn" onclick="deleteMember('{{ member.phone }}')">Delete</button>
+    <div class="tab-content active" id="tab-members">
+        <div id="members-section">
+            <h3>Group Members</h3>
+            <ul class="member-list">
+                {% for member in group.members %}
+                <li class="member-item" data-phone="{{ member.phone }}" data-name="{{ member.name }}">
+                    <div class="member-left">
+                        <span class="member-name">{{ member.name }}</span>
+                    </div>
+                    {% if current_user_phone == group.creator_phone %}
+                    <div class="member-actions">
+                        <button class="edit-btn" onclick="editMember('{{ member.phone }}')">Edit</button>
+                        <button class="delete-btn" onclick="deleteMember('{{ member.phone }}')">Delete</button>
+                    </div>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% if current_user_phone == group.creator_phone %}
+            <button class="add-member-btn" onclick="openAddMemberModal()">Add Member</button>
+            {% endif %}
+        </div>
+        <div id="member-modal" class="modal" style="display:none;">
+            <div class="modal-content">
+                <span onclick="closeMemberModal()" class="close">&times;</span>
+                <h2 id="member-modal-title">Add Member</h2>
+                <form id="member-form">
+                    <input type="hidden" id="member-mode" value="add">
+                    <input type="hidden" id="member-phone-original">
+                    <label>Name:</label>
+                    <input type="text" id="member-name" required>
+                    <label>Phone:</label>
+                    <input type="tel" id="member-phone" pattern="[0-9]{10}" required>
+                    <button type="submit" id="member-submit-btn">Save</button>
+                </form>
+            </div>
+        </div>
     </div>
-    {% endif %}
-  </li>
-  {% endfor %}
-</ul>
-
-
-
-     {% if current_user_phone == group.creator_phone %}
-    <button class="add-member-btn" onclick="openAddMemberModal()">Add Member</button>
-    {% endif %} 
-  </div>
- <div id="member-modal" class="modal" style="display:none;">
-  <div class="modal-content">
-    <span onclick="closeMemberModal()" class="close">&times;</span>
-    <h2 id="member-modal-title">Add Member</h2>
-    <form id="member-form">
-      <input type="hidden" id="member-mode" value="add">
-      <input type="hidden" id="member-phone-original"> <!-- used for editing -->
-
-      <label>Name:</label>
-      <input type="text" id="member-name" required>
-
-      <label>Phone:</label>
-      <input type="tel" id="member-phone" pattern="[0-9]{10}" required>
-
-      <button type="submit" id="member-submit-btn">Save</button>
-    </form>
-  </div>
+    <div class="tab-content" id="tab-balance">
+        <h3 class="section-title">Your Balance Summary</h3>
+        <div class="balance-columns">
+            <div class="balance-card card-negative">
+                <h4>You Owe</h4>
+                <div id="to-pay-list" class="balance-list"></div>
+            </div>
+            <div class="balance-card card-positive">
+                <h4>You Will Get</h4>
+                <div id="to-get-list" class="balance-list"></div>
+            </div>
+        </div>
+        <hr class="divider">
+        <h3 class="section-title">Transaction Timeline</h3>
+        <div id="balance-timeline" class="timeline"></div>
+    </div>
+    <div class="tab-content" id="tab-history">
+        <h3 class="section-title">Expense History</h3>
+        <div id="expense-history-list" class="history-list"></div>
+    </div>
+    <div id="tab-analytics" class="tab-content analytics-overview">
+        <div class="total-expense-card">
+            <h3>Total Group Expenses</h3>
+            <div id="total-expense" class="analytics-value">₹0</div>
+        </div>
+        <div class="chart-controls">
+            <label for="bar-filter">Bar Chart View:</label>
+            <select id="bar-filter">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+            </select>
+        </div>
+        <div class="analytics-charts" id="charts-container">
+            <div class="chart-card">
+                <canvas id="bar-chart"></canvas>
+            </div>
+            <div class="chart-card">
+                <canvas id="pie-chart"></canvas>
+            </div>
+        </div>
+    </div>
 </div>
-</div>
-
-
-<div class="tab-content" id="tab-balance">
-  <h3 class="section-title">Your Balance Summary</h3>
-
-  <div class="balance-columns">
-    <div class="balance-card card-negative">
-      <h4>You Owe</h4>
-      <div id="to-pay-list" class="balance-list"></div>
-    </div>
-
-    <div class="balance-card card-positive">
-      <h4>You Will Get</h4>
-      <div id="to-get-list" class="balance-list"></div>
-    </div>
-  </div>
-
-  <hr class="divider">
-
-  <h3 class="section-title">Transaction Timeline</h3>
-  <div id="balance-timeline" class="timeline"></div>
-</div>
-
-
-<div class="tab-content" id="tab-history">
-  <h3 class="section-title">Expense History</h3>
-  <div id="expense-history-list" class="history-list"></div>
-</div>
-
-<div id="tab-analytics" class="tab-content analytics-overview">
-  <!-- Total Expense Card -->
-  <div class="total-expense-card">
-    <h3>Total Group Expenses</h3>
-    <div id="total-expense" class="analytics-value">₹0</div>
-  </div>
-
-  <!-- Bar Chart Filter -->
-  <div class="chart-controls">
-    <label for="bar-filter">Bar Chart View:</label>
-    <select id="bar-filter">
-      <option value="daily">Daily</option>
-      <option value="weekly">Weekly</option>
-      <option value="monthly">Monthly</option>
-    </select>
-  </div>
-
-  <!-- Chart Area -->
-  <div class="analytics-charts" id="charts-container">
-    <div class="chart-card">
-      <canvas id="bar-chart"></canvas>
-    </div>
-    <div class="chart-card">
-      <canvas id="pie-chart"></canvas>
-    </div>
-  </div>
-</div>
-
-
 <script src="{{ url_for('static', filename='js/group_details.js') }}"></script>
-<script>
-  window.onload = function () {
-    loadBalanceData();
-    loadExpenseHistory();
-}
-</script>
-
 </body>
 </html>
